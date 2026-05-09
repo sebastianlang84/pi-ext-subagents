@@ -1,16 +1,8 @@
 # pi-subagents
 
-Pi extension for delegating work to specialized subagents with isolated context windows.
-
-This package exposes a `subagent` tool that can run agents in three modes:
-
-- **single**: run one agent on one task
-- **parallel**: run multiple agents concurrently
-- **chain**: run agents sequentially and pass `{previous}` output forward
+Pi extension for delegating work to specialized subagents with isolated context windows. It supports single-agent runs, parallel delegation, and chained handoffs.
 
 ## Install
-
-From GitHub:
 
 ```bash
 pi install git:github.com/sebastianlang84/pi-ext-subagents
@@ -19,38 +11,13 @@ pi install git:github.com/sebastianlang84/pi-ext-subagents
 For local development:
 
 ```bash
-pi -e ~/dev/pi-extensions/pi-ext-subagents
+cd ~/dev/pi-extensions/pi-ext-subagents
+pi install .
 ```
 
-## Agent files
+## Usage
 
-Global user agents live in:
-
-```text
-~/.pi/agent/agents/
-```
-
-Project-local agents live in:
-
-```text
-.pi/agents/
-```
-
-Each agent is a Markdown file with frontmatter:
-
-```md
----
-name: reviewer
-description: Reviews code changes for correctness and risks
-tools: read,grep,bash
-model: anthropic/claude-sonnet-4-5
----
-You are a careful code reviewer. Focus on correctness, edge cases, and concise findings.
-```
-
-## Example usage
-
-Single agent:
+Call the `subagent` tool with one agent:
 
 ```json
 {
@@ -59,7 +26,7 @@ Single agent:
 }
 ```
 
-Parallel agents:
+Or run multiple agents in parallel:
 
 ```json
 {
@@ -70,19 +37,8 @@ Parallel agents:
 }
 ```
 
-Chain:
+Global agents live in `~/.pi/agent/agents/`. Project-local agents live in `.pi/agents/`.
 
-```json
-{
-  "chain": [
-    { "agent": "researcher", "task": "Investigate the issue." },
-    { "agent": "writer", "task": "Summarize this for the user: {previous}" }
-  ]
-}
-```
+## License
 
-## Notes
-
-- By default, the tool loads global agents from `~/.pi/agent/agents`.
-- Set `agentScope` to `project` or `both` to use project-local agents.
-- Project-local agents require confirmation by default because they are repo-controlled.
+MIT. See `LICENSE`.
