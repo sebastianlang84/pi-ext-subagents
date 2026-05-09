@@ -27,6 +27,8 @@ import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
+const AGENT_END_GRACE_MS = 2000;
+const AGENT_END_FORCE_KILL_MS = 1000;
 
 function formatTokens(count: number): string {
 	if (count < 1000) return count.toString();
@@ -309,6 +311,47 @@ async function runSingleAgent(
 				stdio: ["ignore", "pipe", "pipe"],
 			});
 			let buffer = "";
+			let resolved = false;
+			let childClosed = false;
+			let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
+			let forceKillFallbackTimer: ReturnType<typeof setTimeout> | undefined;
+			let abortHandler: (() => void) | undefined;
+			let finalEventSeen = false;
+
+			const finish = (code: number) => {
+				if (resolved) return;
+				resolved = true;
+				if (forceKillTimer) clearTimeout(forceKillTimer);
+				if (forceKillFallbackTimer) clearTimeout(forceKillFallbackTimer);
+				if (signal && abortHandler) signal.removeEventListener("abort", abortHandler);
+				resolve(code);
+			};
+
+			const terminateAfterFinalEvent = () => {
+				// `agent_end` means Pi produced the final JSON result for this
+				// subagent. Prefer the child process's real `close` event so late
+				// output and cleanup still land. If the process gets stuck after the
+				// final result, terminate it and resolve from the already-complete JSON.
+				if (finalEventSeen || childClosed) return;
+				finalEventSeen = true;
+				forceKillTimer = setTimeout(() => {
+					if (childClosed || resolved) return;
+					proc.kill("SIGTERM");
+					forceKillFallbackTimer = setTimeout(() => {
+						if (childClosed || resolved) return;
+						if (buffer.trim()) {
+							processLine(buffer);
+							buffer = "";
+						}
+						currentResult.stderr += currentResult.stderr.endsWith("\n") || !currentResult.stderr ? "" : "\n";
+						currentResult.stderr += "Subagent process did not exit after agent_end; force-killed after final result.\n";
+						proc.kill("SIGKILL");
+						finish(0);
+					}, AGENT_END_FORCE_KILL_MS);
+					forceKillFallbackTimer.unref?.();
+				}, AGENT_END_GRACE_MS);
+				forceKillTimer.unref?.();
+			};
 
 			const processLine = (line: string) => {
 				if (!line.trim()) return;
@@ -345,9 +388,15 @@ async function runSingleAgent(
 					currentResult.messages.push(event.message as Message);
 					emitUpdate();
 				}
+
+				if (event.type === "agent_end") {
+					emitUpdate();
+					terminateAfterFinalEvent();
+				}
 			};
 
 			proc.stdout.on("data", (data) => {
+				if (resolved) return;
 				buffer += data.toString();
 				const lines = buffer.split("\n");
 				buffer = lines.pop() || "";
@@ -355,26 +404,32 @@ async function runSingleAgent(
 			});
 
 			proc.stderr.on("data", (data) => {
+				if (resolved) return;
 				currentResult.stderr += data.toString();
 			});
 
 			proc.on("close", (code) => {
+				childClosed = true;
+				if (forceKillTimer) clearTimeout(forceKillTimer);
+				if (forceKillFallbackTimer) clearTimeout(forceKillFallbackTimer);
+				if (resolved) return;
 				if (buffer.trim()) processLine(buffer);
-				resolve(code ?? 0);
+				finish(code ?? 0);
 			});
 
 			proc.on("error", () => {
-				resolve(1);
+				finish(1);
 			});
 
 			if (signal) {
 				const killProc = () => {
 					wasAborted = true;
-					proc.kill("SIGTERM");
+					if (!childClosed) proc.kill("SIGTERM");
 					setTimeout(() => {
-						if (!proc.killed) proc.kill("SIGKILL");
-					}, 5000);
+						if (!childClosed) proc.kill("SIGKILL");
+					}, 5000).unref?.();
 				};
+				abortHandler = killProc;
 				if (signal.aborted) killProc();
 				else signal.addEventListener("abort", killProc, { once: true });
 			}
