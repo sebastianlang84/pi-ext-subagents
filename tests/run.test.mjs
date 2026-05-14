@@ -62,6 +62,43 @@ test("parses partial JSON lines, ignores malformed events, and aggregates usage"
 	assert.match(result.stderr, /Ignored malformed JSON/);
 });
 
+test("emits partial updates as running until the child closes", async () => {
+	const fake = new FakeProcess();
+	const seenExitCodes = [];
+	const promise = startRun(fake, {
+		onUpdate: (partial) => seenExitCodes.push(partial.details.results[0].exitCode),
+	});
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "message_end", message: message("working") }) + "\n");
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.deepEqual(seenExitCodes, [-1]);
+	assert.equal(result.exitCode, 0);
+});
+
+test("ingests tool_result_end messages without counting assistant usage", async () => {
+	const fake = new FakeProcess();
+	const toolMessage = {
+		role: "assistant",
+		content: [{ type: "text", text: "tool result captured" }],
+		model: "model-tool",
+	};
+	const promise = startRun(fake);
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "tool_result_end", message: toolMessage }) + "\n");
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.messages.length, 1);
+	assert.equal(getFinalOutput(result.messages), "tool result captured");
+	assert.equal(result.usage.turns, 0);
+	assert.equal(result.usage.input, 0);
+});
+
 test("force-kills a process that hangs after agent_end but keeps the final result", async () => {
 	const fake = new FakeProcess();
 	const promise = startRun(fake, { agentEndGraceMs: 5, agentEndForceKillMs: 5 });

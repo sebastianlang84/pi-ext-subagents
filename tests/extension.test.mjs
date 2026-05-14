@@ -28,6 +28,12 @@ test("extension loads and registers the subagent tool", () => {
 	assert.ok(tool.parameters);
 });
 
+test("package manifest pi.extensions points to the source entrypoint", () => {
+	const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+	assert.deepEqual(packageJson.pi?.extensions, ["./src/index.ts"]);
+	assert.equal(fs.existsSync(path.join(process.cwd(), "src", "index.ts")), true);
+});
+
 test("execute reports normalized invalid-mode errors", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-invalid-"));
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");

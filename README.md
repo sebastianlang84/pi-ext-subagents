@@ -98,6 +98,10 @@ Project-local agents are repo-controlled prompts. When a requested agent resolve
 
 Only disable confirmation for repositories you trust.
 
+## Diagnostics
+
+Malformed JSON stdout events from subagent JSON mode are ignored so later valid events can continue; each ignored event is recorded in the subagent result's stderr diagnostics.
+
 ## Compatibility
 
 This package targets current Pi package scopes (`@earendil-works/*`) and uses a direct `pi.extensions` entry for `./src/index.ts`.

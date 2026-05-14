@@ -72,7 +72,12 @@ export function getDisplayItems(messages: Message[]): DisplayItem[] {
 }
 
 function isErrorResult(result: SingleResult): boolean {
-	return result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
+	return result.exitCode !== -1 && (result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted");
+}
+
+function statusForResult(result: SingleResult): DisplayTone {
+	if (result.exitCode === -1) return "running";
+	return isErrorResult(result) ? "error" : "success";
 }
 
 function sliceItems(items: DisplayItem[], limit?: number): { items: DisplayItem[]; skippedItems: number } {
@@ -83,10 +88,11 @@ function sliceItems(items: DisplayItem[], limit?: number): { items: DisplayItem[
 function resultSection(result: SingleResult, expanded: boolean, limit?: number): ResultDisplaySection {
 	const allItems = getDisplayItems(result.messages);
 	const { items, skippedItems } = sliceItems(allItems, expanded ? undefined : limit);
-	const error = isErrorResult(result) ? result.errorMessage : undefined;
+	const status = statusForResult(result);
+	const error = status === "error" ? result.errorMessage : undefined;
 	return {
 		heading: result.step ? `Step ${result.step}: ${result.agent}` : result.agent,
-		status: isErrorResult(result) ? "error" : result.exitCode === -1 ? "running" : "success",
+		status,
 		meta: result.agentSource,
 		task: expanded ? result.task : undefined,
 		error,
@@ -139,12 +145,14 @@ export function buildResultDisplayModel(
 	}
 
 	if (details.mode === "chain") {
-		const successCount = details.results.filter((r) => r.exitCode === 0).length;
-		const allSucceeded = successCount === details.results.length;
+		const statuses = details.results.map(statusForResult);
+		const successCount = statuses.filter((status) => status === "success").length;
+		const runningCount = statuses.filter((status) => status === "running").length;
+		const failCount = statuses.filter((status) => status === "error").length;
 		const sections = details.results.map((r) => resultSection(r, expanded, expanded ? undefined : 5));
 		return {
 			header: `chain ${successCount}/${details.results.length} steps`,
-			tone: allSucceeded ? "success" : "error",
+			tone: runningCount > 0 ? "running" : failCount > 0 ? "error" : "success",
 			sections,
 			footer: formatUsageStats(aggregateUsage(details.results)) || undefined,
 			expandHint: !expanded,
@@ -152,9 +160,10 @@ export function buildResultDisplayModel(
 		};
 	}
 
-	const running = details.results.filter((r) => r.exitCode === -1).length;
-	const successCount = details.results.filter((r) => r.exitCode === 0).length;
-	const failCount = details.results.filter((r) => r.exitCode > 0).length;
+	const statuses = details.results.map(statusForResult);
+	const running = statuses.filter((status) => status === "running").length;
+	const successCount = statuses.filter((status) => status === "success").length;
+	const failCount = statuses.filter((status) => status === "error").length;
 	const done = successCount + failCount;
 	return {
 		header: `parallel ${running > 0 ? `${done}/${details.results.length} done, ${running} running` : `${successCount}/${details.results.length} tasks`}`,

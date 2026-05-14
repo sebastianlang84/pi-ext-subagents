@@ -35,3 +35,10 @@ test("rejects invalid task invariants", () => {
 	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "   " }] }), /task/);
 	assert.throws(() => normalizeSubagentRequest({ tasks: Array.from({ length: 9 }, (_, i) => ({ agent: `a${i}`, task: "x" })) }), /Too many/);
 });
+
+test("rejects invalid agentScope and whitespace cwd values", () => {
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "global" }), /agentScope/);
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", cwd: "   " }), /single\.cwd/);
+	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", cwd: "\n" }] }), /tasks\[0\]\.cwd/);
+	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", cwd: "\t" }] }), /chain\[0\]\.cwd/);
+});

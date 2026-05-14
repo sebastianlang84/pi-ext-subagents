@@ -43,6 +43,58 @@ test("builds a collapsed single-result display model", () => {
 	].join("\n"));
 });
 
+test("builds parallel display states for running, failed, and completed results", () => {
+	const running = { ...result("slow", "", -1), messages: [] };
+	const failed = { ...result("bad", "Failed", 1), errorMessage: "subagent exploded", stopReason: "error" };
+	const stoppedWithError = { ...result("stopped", "Stopped", 0), errorMessage: "model stopped with error", stopReason: "error" };
+	const passed = result("ok", "Done");
+
+	const runningModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "running" }], details: { mode: "parallel", agentScope: "user", projectAgentsDir: null, results: [running, failed, passed] } },
+		true,
+		10,
+	);
+
+	assert.equal(runningModel.header, "parallel 2/3 done, 1 running");
+	assert.equal(runningModel.tone, "running");
+	assert.deepEqual(runningModel.sections.map((section) => section.status), ["running", "error", "success"]);
+	assert.equal(runningModel.sections[1].error, "subagent exploded");
+	assert.equal(runningModel.footer, undefined);
+
+	const completedModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "parallel", agentScope: "user", projectAgentsDir: null, results: [failed, passed] } },
+		false,
+		10,
+	);
+
+	assert.equal(completedModel.header, "parallel 1/2 tasks");
+	assert.equal(completedModel.tone, "warning");
+	assert.equal(completedModel.sections[0].error, "subagent exploded");
+	assert.match(stringifyResultDisplayModel(completedModel), /## bad error/);
+
+	const stoppedModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "parallel", agentScope: "user", projectAgentsDir: null, results: [stoppedWithError, passed] } },
+		false,
+		10,
+	);
+	assert.equal(stoppedModel.tone, "warning");
+	assert.equal(stoppedModel.sections[0].status, "error");
+	assert.equal(stoppedModel.sections[0].error, "model stopped with error");
+});
+
+test("marks chain tone as error when a step exits zero with an error stop reason", () => {
+	const stoppedWithError = { ...result("stopped", "Stopped", 0), errorMessage: "model stopped with error", stopReason: "error" };
+	const model = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "chain", agentScope: "user", projectAgentsDir: null, results: [stoppedWithError] } },
+		false,
+		10,
+	);
+
+	assert.equal(model.header, "chain 0/1 steps");
+	assert.equal(model.tone, "error");
+	assert.equal(model.sections[0].status, "error");
+});
+
 test("builds expanded chain display with tasks, final output, and aggregate usage", () => {
 	const model = buildResultDisplayModel(
 		{ content: [{ type: "text", text: "done" }], details: { mode: "chain", agentScope: "user", projectAgentsDir: null, results: [result("one", "First"), result("two", "Second")] } },

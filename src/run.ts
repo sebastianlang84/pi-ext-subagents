@@ -187,7 +187,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 		agent: options.agentName,
 		agentSource: agent.source,
 		task: options.task,
-		exitCode: 0,
+		exitCode: -1,
 		messages: [],
 		stderr: "",
 		usage: emptyUsage(),

@@ -95,6 +95,10 @@ function formatToolCall(
 	}
 }
 
+function isSuccessfulResult(result: SingleResult): boolean {
+	return result.exitCode === 0 && result.stopReason !== "error" && result.stopReason !== "aborted";
+}
+
 async function mapWithConcurrencyLimit<TIn, TOut>(
 	items: TIn[],
 	concurrency: number,
@@ -314,11 +318,11 @@ export default function (pi: ExtensionAPI) {
 					return result;
 				});
 
-				const successCount = results.filter((r) => r.exitCode === 0).length;
+				const successCount = results.filter(isSuccessfulResult).length;
 				const summaries = results.map((r) => {
 					const output = getFinalOutput(r.messages);
 					const preview = output.slice(0, 100) + (output.length > 100 ? "..." : "");
-					return `[${r.agent}] ${r.exitCode === 0 ? "completed" : "failed"}: ${preview || "(no output)"}`;
+					return `[${r.agent}] ${isSuccessfulResult(r) ? "completed" : "failed"}: ${preview || "(no output)"}`;
 				});
 				return {
 					content: [{ type: "text", text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}` }],
