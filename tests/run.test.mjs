@@ -114,6 +114,56 @@ test("force-kills a process that hangs after agent_end but keeps the final resul
 	assert.match(result.stderr, /force-killed after final result/);
 });
 
+test("honors injected timer scheduling for agent_end cleanup", async () => {
+	const fake = new FakeProcess();
+	const timers = [];
+	const schedule = (fn, ms) => {
+		const timer = { fn, ms, unref() {} };
+		timers.push(timer);
+		return timer;
+	};
+	const promise = startRun(fake, { now: schedule, agentEndGraceMs: 10, agentEndForceKillMs: 20 });
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "message_end", message: message("final") }) + "\n");
+		fake.stdout.emit("data", JSON.stringify({ type: "agent_end" }) + "\n");
+	});
+
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.equal(timers.length, 1);
+	assert.equal(timers[0].ms, 10);
+	timers[0].fn();
+	assert.deepEqual(fake.kills, ["SIGTERM"]);
+	assert.equal(timers.length, 2);
+	assert.equal(timers[1].ms, 20);
+	timers[1].fn();
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(getFinalOutput(result.messages), "final");
+	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
+});
+
+test("honors injected timer scheduling for abort fallback", async () => {
+	const fake = new FakeProcess();
+	const timers = [];
+	const schedule = (fn, ms) => {
+		const timer = { fn, ms, unref() {} };
+		timers.push(timer);
+		return timer;
+	};
+	const controller = new AbortController();
+	const promise = startRun(fake, { signal: controller.signal, abortForceKillMs: 30, now: schedule });
+
+	controller.abort();
+	assert.deepEqual(fake.kills, ["SIGTERM"]);
+	assert.equal(timers.length, 1);
+	assert.equal(timers[0].ms, 30);
+	timers[0].fn();
+
+	await assert.rejects(promise, /Subagent was aborted/);
+	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
+});
+
 test("handles subprocess spawn errors", async () => {
 	const fake = new FakeProcess();
 	const promise = startRun(fake);

@@ -36,7 +36,10 @@ test("package manifest pi.extensions points to the source entrypoint", () => {
 
 test("execute reports normalized invalid-mode errors", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-invalid-"));
-	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	const home = path.join(root, "home");
+	process.env.PI_CODING_AGENT_DIR = home;
+	fs.mkdirSync(path.join(home, "agents"), { recursive: true });
+	fs.writeFileSync(path.join(home, "agents", "broken.md"), "---\nname: broken\n---\n\nBody\n");
 	const tool = registerExtension();
 	const result = await tool.execute(
 		"id",
@@ -47,6 +50,32 @@ test("execute reports normalized invalid-mode errors", async () => {
 	);
 	assert.equal(result.isError, true);
 	assert.match(result.content[0].text, /Provide exactly one mode/);
+	assert.match(result.content[0].text, /Invalid agents:/);
+	assert.equal(result.details.invalidAgents.length, 1);
+});
+
+test("execute reports invalid requested agents before spawning", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-invalid-agent-"));
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	fs.mkdirSync(path.join(project, ".pi", "agents"), { recursive: true });
+	fs.writeFileSync(path.join(project, ".pi", "agents", "broken.md"), "---\nname: broken\n---\n\nBody\n");
+	const tool = registerExtension();
+
+	const result = await tool.execute(
+		"id",
+		{ agent: "broken", task: "run", agentScope: "project", confirmProjectAgents: false },
+		undefined,
+		undefined,
+		{ cwd: project, hasUI: false, ui: { confirm: async () => assert.fail("must not prompt or spawn") } },
+	);
+
+	assert.equal(result.isError, true);
+	assert.match(result.content[0].text, /Unknown agent: "broken"/);
+	assert.match(result.content[0].text, /Invalid agents:/);
+	assert.match(result.content[0].text, /Missing required frontmatter/);
+	assert.equal(result.details.invalidAgents.length, 1);
+	assert.equal(result.details.results.length, 0);
 });
 
 test("project-local agents fail closed in headless mode by default", async () => {

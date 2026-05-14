@@ -17,7 +17,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { type ExtensionAPI, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { discoverAgents, getProjectAgentTrustDecision, type AgentScope } from "./agents.js";
+import { discoverAgents, getProjectAgentTrustDecision, type AgentScope, type InvalidAgentDiagnostic } from "./agents.js";
 import { buildResultDisplayModel, type DisplayItem, type DisplayTone } from "./display.js";
 import { normalizeSubagentRequest, requestedAgentNames, RequestValidationError } from "./request.js";
 import {
@@ -36,11 +36,6 @@ function formatToolCall(
 	args: Record<string, unknown>,
 	themeFg: (color: any, text: string) => string,
 ): string {
-	const shortenPath = (p: string) => {
-		const home = os.homedir();
-		return p.startsWith(home) ? `~${p.slice(home.length)}` : p;
-	};
-
 	switch (toolName) {
 		case "bash": {
 			const command = (args.command as string) || "...";
@@ -93,6 +88,26 @@ function formatToolCall(
 			return themeFg("accent", toolName) + themeFg("dim", ` ${preview}`);
 		}
 	}
+}
+
+function shortenPath(p: string): string {
+	const home = os.homedir();
+	return p.startsWith(home) ? `~${p.slice(home.length)}` : p;
+}
+
+function formatInvalidAgentDiagnostics(invalidAgents: InvalidAgentDiagnostic[], maxItems = 5): string {
+	if (invalidAgents.length === 0) return "";
+	const listed = invalidAgents.slice(0, maxItems).map((diagnostic) => {
+		const filePath = shortenPath(diagnostic.filePath);
+		return `- ${diagnostic.source}: ${filePath}: ${diagnostic.reason}`;
+	});
+	const remaining = invalidAgents.length - listed.length;
+	if (remaining > 0) listed.push(`- ... ${remaining} more invalid agent${remaining === 1 ? "" : "s"}`);
+	return `Invalid agents:\n${listed.join("\n")}`;
+}
+
+function formatAvailableAgents(agents: { name: string; source: string }[]): string {
+	return agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
 }
 
 function isSuccessfulResult(result: SingleResult): boolean {
@@ -172,10 +187,11 @@ export default function (pi: ExtensionAPI) {
 				const discovery = discoverAgents(ctx.cwd, scope);
 				const mode = params.chain !== undefined ? "chain" : params.tasks !== undefined ? "parallel" : "single";
 				const message = error instanceof RequestValidationError ? error.message : `Invalid parameters: ${String(error)}`;
-				const available = discovery.agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
+				const available = formatAvailableAgents(discovery.agents);
+				const invalidDiagnostics = formatInvalidAgentDiagnostics(discovery.invalidAgents);
 				return {
-					content: [{ type: "text", text: `${message}\nAvailable agents: ${available}` }],
-					details: { mode, agentScope: scope, projectAgentsDir: discovery.projectAgentsDir, results: [] },
+					content: [{ type: "text", text: `${message}\nAvailable agents: ${available}${invalidDiagnostics ? `\n${invalidDiagnostics}` : ""}` }],
+					details: { mode, agentScope: scope, projectAgentsDir: discovery.projectAgentsDir, invalidAgents: discovery.invalidAgents, results: [] },
 					isError: true,
 				};
 			}
@@ -189,8 +205,27 @@ export default function (pi: ExtensionAPI) {
 					mode,
 					agentScope: plan.agentScope,
 					projectAgentsDir: discovery.projectAgentsDir,
+					invalidAgents: discovery.invalidAgents,
 					results,
 				});
+
+			const availableAgentNames = new Set(agents.map((agent) => agent.name));
+			const missingAgents = [...requestedAgentNames(plan)].filter((agentName) => !availableAgentNames.has(agentName));
+			if (missingAgents.length > 0) {
+				const available = formatAvailableAgents(agents);
+				const invalidDiagnostics = formatInvalidAgentDiagnostics(discovery.invalidAgents);
+				const missing = missingAgents.map((name) => `"${name}"`).join(", ");
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Unknown agent${missingAgents.length === 1 ? "" : "s"}: ${missing}.\nAvailable agents: ${available}${invalidDiagnostics ? `\n${invalidDiagnostics}` : ""}`,
+						},
+					],
+					details: makeDetails(plan.mode)([]),
+					isError: true,
+				};
+			}
 
 			const trustDecision = getProjectAgentTrustDecision(
 				agents,

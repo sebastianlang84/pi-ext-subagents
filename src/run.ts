@@ -6,7 +6,7 @@ import type { EventEmitter } from "node:events";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import type { AgentConfig } from "./agents.js";
+import type { AgentConfig, InvalidAgentDiagnostic } from "./agents.js";
 
 const DEFAULT_AGENT_END_GRACE_MS = 2000;
 const DEFAULT_AGENT_END_FORCE_KILL_MS = 1000;
@@ -42,6 +42,7 @@ export interface SubagentDetails {
 	mode: "single" | "parallel" | "chain";
 	agentScope: "user" | "project" | "both";
 	projectAgentsDir: string | null;
+	invalidAgents?: InvalidAgentDiagnostic[];
 	results: SingleResult[];
 }
 
@@ -274,13 +275,15 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				}
 			};
 
+			const scheduleTimer = options.now ?? setTimeout;
+
 			const terminateAfterFinalEvent = () => {
 				if (finalEventSeen || childClosed) return;
 				finalEventSeen = true;
-				forceKillTimer = setTimeout(() => {
+				forceKillTimer = scheduleTimer(() => {
 					if (childClosed || resolved) return;
 					proc.kill("SIGTERM");
-					forceKillFallbackTimer = setTimeout(() => {
+					forceKillFallbackTimer = scheduleTimer(() => {
 						if (childClosed || resolved) return;
 						if (buffer.trim()) {
 							processLine(buffer);
@@ -333,7 +336,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				const killProc = () => {
 					wasAborted = true;
 					if (!childClosed) proc.kill("SIGTERM");
-					abortFallbackTimer = setTimeout(() => {
+					abortFallbackTimer = scheduleTimer(() => {
 						if (!childClosed && !resolved) {
 							proc.kill("SIGKILL");
 							finish(1);

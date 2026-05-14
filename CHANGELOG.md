@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 - 2026-05-14
+
+- Surface invalid agent-file diagnostics in subagent error details instead of dropping them.
+- Honor injected timer scheduling for subagent cleanup and abort fallback tests.
+
 ## 1.1.0 - 2026-05-14
 
 - Fail closed for project-local agents in headless/JSON/print mode unless `confirmProjectAgents: false` is explicit.
