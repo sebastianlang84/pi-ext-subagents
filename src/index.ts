@@ -135,32 +135,32 @@ async function mapWithConcurrencyLimit<TIn, TOut>(
 }
 
 const TaskItem = Type.Object({
-	agent: Type.String({ description: "Agent name" }),
-	task: Type.String({ description: "Task" }),
-	cwd: Type.Optional(Type.String({ description: "Working directory" })),
+	agent: Type.String(),
+	task: Type.String(),
+	cwd: Type.Optional(Type.String()),
 });
 
 const ChainItem = Type.Object({
-	agent: Type.String({ description: "Agent name" }),
-	task: Type.String({ description: "Task; use {previous} for prior output" }),
-	cwd: Type.Optional(Type.String({ description: "Working directory" })),
+	agent: Type.String(),
+	task: Type.String({ description: "Use {previous} for prior output." }),
+	cwd: Type.Optional(Type.String()),
 });
 
 const AgentScopeSchema = StringEnum(["user", "project", "both"] as const, {
-	description: "Agent source. Default: user; use both/project for repo agents.",
+	description: "Agent source: user (default), project, or both.",
 	default: "user",
 });
 
 const SubagentParams = Type.Object({
-	agent: Type.Optional(Type.String({ description: "Single agent" })),
-	task: Type.Optional(Type.String({ description: "Single task" })),
-	tasks: Type.Optional(Type.Array(TaskItem, { description: "Parallel tasks" })),
-	chain: Type.Optional(Type.Array(ChainItem, { description: "Sequential steps" })),
+	agent: Type.Optional(Type.String()),
+	task: Type.Optional(Type.String()),
+	tasks: Type.Optional(Type.Array(TaskItem)),
+	chain: Type.Optional(Type.Array(ChainItem)),
 	agentScope: Type.Optional(AgentScopeSchema),
 	confirmProjectAgents: Type.Optional(
-		Type.Boolean({ description: "Confirm project agents (default true)", default: true }),
+		Type.Boolean({ description: "Prompt before project agents; default true.", default: true }),
 	),
-	cwd: Type.Optional(Type.String({ description: "Single working directory" })),
+	cwd: Type.Optional(Type.String()),
 });
 
 export default function (pi: ExtensionAPI) {
