@@ -1,0 +1,9 @@
+# Changelog
+
+## 1.1.0 - 2026-05-14
+
+- Fail closed for project-local agents in headless/JSON/print mode unless `confirmProjectAgents: false` is explicit.
+- Split request normalization, agent catalog/trust policy, subprocess execution, and display-model logic into testable modules.
+- Add automated Node test coverage for request validation, agent discovery, trust confirmation, subprocess lifecycle/error handling, and display output.
+- Migrate package imports/dependencies to current Pi `@earendil-works/*` scopes and point the Pi manifest directly at `src/index.ts`.
+- Expand README coverage for chain mode, agent scope, project-agent risk, confirmation behavior, installation, and compatibility.

@@ -1,0 +1,58 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { createJiti } from "jiti";
+
+const jiti = createJiti(import.meta.url);
+const { discoverAgents, loadAgentsFromDir, getProjectAgentTrustDecision } = await jiti.import("../src/agents.ts");
+
+function writeAgent(file, frontmatter, body = "Body") {
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	fs.writeFileSync(file, `---\n${frontmatter}\n---\n\n${body}\n`);
+}
+
+test("discovers user/project agents with project precedence in both scope", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-agents-"));
+	const home = path.join(root, "home");
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = home;
+
+	writeAgent(path.join(home, "agents", "same.md"), "name: same\ndescription: User agent\ntools: read, bash\nmodel: user-model");
+	writeAgent(path.join(project, ".pi", "agents", "same.md"), "name: same\ndescription: Project agent\ntools: read\nmodel: project-model");
+	writeAgent(path.join(project, ".pi", "agents", "project-only.md"), "name: project-only\ndescription: Project only");
+
+	assert.deepEqual(discoverAgents(project, "user").agents.map((a) => `${a.name}:${a.source}`), ["same:user"]);
+	assert.deepEqual(discoverAgents(project, "project").agents.map((a) => `${a.name}:${a.source}`).sort(), ["project-only:project", "same:project"]);
+
+	const both = discoverAgents(project, "both").agents;
+	assert.equal(both.find((a) => a.name === "same")?.source, "project");
+	assert.equal(both.find((a) => a.name === "same")?.model, "project-model");
+});
+
+test("reports malformed agents, YAML-list tools, and accepts symlinked md files", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-load-"));
+	const dir = path.join(root, "agents");
+	fs.mkdirSync(dir, { recursive: true });
+	writeAgent(path.join(dir, "missing.md"), "name: missing");
+	writeAgent(path.join(dir, "list-tools.md"), "name: list-tools\ndescription: Bad tools\ntools:\n  - read\n  - bash");
+	writeAgent(path.join(root, "target.md"), "name: linked\ndescription: Linked\ntools: read");
+	fs.symlinkSync(path.join(root, "target.md"), path.join(dir, "linked.md"));
+
+	const result = loadAgentsFromDir(dir, "project");
+	assert.deepEqual(result.agents.map((a) => a.name), ["linked"]);
+	assert.equal(result.invalidAgents.length, 2);
+	assert.match(result.invalidAgents.map((d) => d.reason).join("\n"), /Missing required frontmatter/);
+	assert.match(result.invalidAgents.map((d) => d.reason).join("\n"), /tools must be a comma-separated string/);
+});
+
+test("project-agent trust policy requires approval unless explicitly disabled", () => {
+	const agents = [
+		{ name: "user", source: "user", description: "", systemPrompt: "", filePath: "" },
+		{ name: "project", source: "project", description: "", systemPrompt: "", filePath: "" },
+	];
+	assert.equal(getProjectAgentTrustDecision(agents, ["project"], true).requiresApproval, true);
+	assert.equal(getProjectAgentTrustDecision(agents, ["project"], false).requiresApproval, false);
+	assert.equal(getProjectAgentTrustDecision(agents, ["user"], true).requiresApproval, false);
+});

@@ -1,6 +1,6 @@
 # pi-subagents
 
-Pi extension for delegating work to specialized subagents with isolated context windows. It supports single-agent runs, parallel delegation, and chained handoffs.
+Pi package that adds a `subagent` tool for delegating work to specialized agents in isolated Pi processes. It supports single-agent runs, bounded parallel delegation, and chained handoffs.
 
 ## Install
 
@@ -11,13 +11,35 @@ pi install git:github.com/sebastianlang84/pi-ext-subagents
 For local development:
 
 ```bash
-cd ~/dev/pi-extensions/pi-ext-subagents
+git clone https://github.com/sebastianlang84/pi-ext-subagents.git
+cd pi-ext-subagents
+npm install
+npm test
 pi install .
 ```
 
+After installation, restart Pi or run `/reload`; the `subagent` tool should appear in the available tools list.
+
+## Agent files
+
+User agents live in `~/.pi/agent/agents/*.md`. Project-local agents live in `.pi/agents/*.md` under the current repo. Agent files use frontmatter plus a system prompt body:
+
+```markdown
+---
+name: reviewer
+description: Reviews changes for correctness and risk
+tools: read, bash
+model: openai-codex/gpt-5.5
+---
+
+You are a focused read-only reviewer...
+```
+
+`tools` must be a comma-separated string. Project agents override same-named user agents only when `agentScope` is `both`.
+
 ## Usage
 
-Call the `subagent` tool with one agent:
+Run one agent:
 
 ```json
 {
@@ -26,7 +48,7 @@ Call the `subagent` tool with one agent:
 }
 ```
 
-Or run multiple agents in parallel:
+Run several agents in parallel (internally capped for concurrency):
 
 ```json
 {
@@ -37,7 +59,48 @@ Or run multiple agents in parallel:
 }
 ```
 
-Global agents live in `~/.pi/agent/agents/`. Project-local agents live in `.pi/agents/`.
+Run a chain; `{previous}` is replaced with the previous step's final output:
+
+```json
+{
+  "chain": [
+    { "agent": "scout", "task": "Summarize the relevant files." },
+    { "agent": "reviewer", "task": "Review this plan against the code:\n{previous}" }
+  ]
+}
+```
+
+## Agent scope and security
+
+By default only user agents are available:
+
+```json
+{ "agentScope": "user" }
+```
+
+Use project-local agents only for trusted repositories:
+
+```json
+{ "agentScope": "project" }
+```
+
+or combine both sources:
+
+```json
+{ "agentScope": "both" }
+```
+
+Project-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution. In headless/JSON/print modes, it fails closed unless you explicitly set:
+
+```json
+{ "confirmProjectAgents": false }
+```
+
+Only disable confirmation for repositories you trust.
+
+## Compatibility
+
+This package targets current Pi package scopes (`@earendil-works/*`) and uses a direct `pi.extensions` entry for `./src/index.ts`.
 
 ## License
 
