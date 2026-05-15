@@ -176,7 +176,11 @@ test("honors injected timer scheduling for abort fallback", async () => {
 	assert.equal(timers[0].ms, 30);
 	timers[0].fn();
 
-	await assert.rejects(promise, /Subagent was aborted/);
+	const result = await promise;
+	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "aborted");
+	assert.match(result.errorMessage, /Subagent was aborted/);
+	assert.match(result.stderr, /Subagent was aborted/);
 	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
 });
 
@@ -186,6 +190,8 @@ test("handles subprocess spawn errors", async () => {
 	setImmediate(() => fake.emit("error", new Error("spawn failed")));
 	const result = await promise;
 	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "error");
+	assert.match(result.errorMessage, /spawn failed/);
 	assert.match(result.stderr, /spawn failed/);
 });
 
@@ -194,7 +200,10 @@ test("aborts with SIGTERM then SIGKILL when the child does not close", async () 
 	const controller = new AbortController();
 	const promise = startRun(fake, { signal: controller.signal, abortForceKillMs: 5 });
 	setImmediate(() => controller.abort());
-	await assert.rejects(promise, /Subagent was aborted/);
+	const result = await promise;
+	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "aborted");
+	assert.match(result.errorMessage, /Subagent was aborted/);
 	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
 });
 

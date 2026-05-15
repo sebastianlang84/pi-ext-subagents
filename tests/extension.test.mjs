@@ -43,6 +43,7 @@ test("parallel tool results mark partial failures as errors and surface diagnost
 		agentResult("ok", "done"),
 		agentResult("bad", "", 1, { stderr: "spawn failed" }),
 		agentResult("stopped", "   ", 0, { errorMessage: "model stopped", stopReason: "error" }),
+		agentResult("aborted", "partial", 1, { errorMessage: "Subagent was aborted.", stopReason: "aborted" }),
 	];
 	const result = buildParallelToolResult(results, {
 		mode: "parallel",
@@ -53,9 +54,10 @@ test("parallel tool results mark partial failures as errors and surface diagnost
 	});
 
 	assert.equal(result.isError, true);
-	assert.match(result.content[0].text, /Parallel: 1\/3 succeeded/);
+	assert.match(result.content[0].text, /Parallel: 1\/4 succeeded/);
 	assert.match(result.content[0].text, /\[bad\] failed: spawn failed/);
 	assert.match(result.content[0].text, /\[stopped\] failed: model stopped/);
+	assert.match(result.content[0].text, /\[aborted\] failed: Subagent was aborted\./);
 });
 
 test("parallel summaries prefer failure diagnostics over partial assistant output", () => {

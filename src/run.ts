@@ -324,9 +324,12 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			});
 
 			proc.on("error", (error) => {
+				const message = error instanceof Error ? error.message : String(error);
+				currentResult.stopReason = "error";
+				currentResult.errorMessage = `Subagent process error: ${message}`;
 				currentResult.stderr = appendLimited(
 					currentResult.stderr,
-					`Subagent process error: ${error instanceof Error ? error.message : String(error)}\n`,
+					`${currentResult.errorMessage}\n`,
 					maxStderrBytes,
 					"stderr",
 				);
@@ -351,8 +354,17 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			}
 		});
 
-		currentResult.exitCode = exitCode;
-		if (wasAborted) throw new Error("Subagent was aborted");
+		currentResult.exitCode = wasAborted && exitCode === 0 ? 1 : exitCode;
+		if (wasAborted) {
+			currentResult.stopReason = "aborted";
+			currentResult.errorMessage ||= "Subagent was aborted.";
+			currentResult.stderr = appendLimited(currentResult.stderr, "Subagent was aborted.\n", maxStderrBytes, "stderr");
+		} else if (currentResult.exitCode !== 0 && !currentResult.stopReason) {
+			currentResult.stopReason = "error";
+			if (!currentResult.stderr.trim()) {
+				currentResult.errorMessage = `Subagent process exited with code ${currentResult.exitCode}.`;
+			}
+		}
 		return currentResult;
 	} finally {
 		if (tmpPromptPath) {
