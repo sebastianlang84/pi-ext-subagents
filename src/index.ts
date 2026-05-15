@@ -20,6 +20,16 @@ import { Type } from "typebox";
 import { discoverAgents as defaultDiscoverAgents, getProjectAgentTrustDecision, type AgentScope, type InvalidAgentDiagnostic } from "./agents.js";
 import { buildResultDisplayModel, type DisplayItem, type DisplayTone } from "./display.js";
 import { normalizeSubagentRequest, requestedAgentNames, RequestValidationError } from "./request.js";
+import { buildParallelToolResult, getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
+export {
+	buildParallelResultSummary,
+	buildParallelToolResult,
+	classifyResult,
+	defaultResultSummaryPolicy,
+	getFailureDiagnostic,
+	getSuccessfulOutput,
+	isSuccessfulResult,
+} from "./resultSummary.js";
 import {
 	getFinalOutput,
 	runSingleAgent as defaultRunSingleAgent,
@@ -108,37 +118,6 @@ function formatInvalidAgentDiagnostics(invalidAgents: InvalidAgentDiagnostic[], 
 
 function formatAvailableAgents(agents: { name: string; source: string }[]): string {
 	return agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
-}
-
-function isSuccessfulResult(result: SingleResult): boolean {
-	return result.exitCode === 0 && result.stopReason !== "error" && result.stopReason !== "aborted";
-}
-
-export function buildParallelResultSummary(results: SingleResult[]): { text: string; isError: boolean; successCount: number } {
-	const successCount = results.filter(isSuccessfulResult).length;
-	const summaries = results.map((r) => {
-		const successful = isSuccessfulResult(r);
-		const finalOutput = getFinalOutput(r.messages).trim();
-		const errorMessage = r.errorMessage?.trim() ?? "";
-		const stderr = r.stderr.trim();
-		const output = successful ? finalOutput : errorMessage || stderr || finalOutput;
-		const preview = output.slice(0, 100) + (output.length > 100 ? "..." : "");
-		return `[${r.agent}] ${successful ? "completed" : "failed"}: ${preview || "(no output)"}`;
-	});
-	return {
-		text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}`,
-		isError: successCount !== results.length,
-		successCount,
-	};
-}
-
-export function buildParallelToolResult(results: SingleResult[], details: SubagentDetails) {
-	const summary = buildParallelResultSummary(results);
-	return {
-		content: [{ type: "text" as const, text: summary.text }],
-		details,
-		isError: summary.isError || undefined,
-	};
 }
 
 async function mapWithConcurrencyLimit<TIn, TOut>(
@@ -331,9 +310,8 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 					});
 					results.push(result);
 
-					const isError = result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
-					if (isError) {
-						const errorMsg = result.errorMessage || result.stderr || getFinalOutput(result.messages) || "(no output)";
+					if (!isSuccessfulResult(result)) {
+						const errorMsg = getFailureDiagnostic(result) || "(no output)";
 						return {
 							content: [{ type: "text", text: `Chain stopped at step ${i + 1} (${step.agent}): ${errorMsg}` }],
 							details: makeDetails("chain")(results),
@@ -405,9 +383,8 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 				onUpdate,
 				makeDetails: makeDetails("single"),
 			});
-			const isError = result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
-			if (isError) {
-				const errorMsg = result.errorMessage || result.stderr || getFinalOutput(result.messages) || "(no output)";
+			if (!isSuccessfulResult(result)) {
+				const errorMsg = getFailureDiagnostic(result) || "(no output)";
 				return {
 					content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${errorMsg}` }],
 					details: makeDetails("single")([result]),

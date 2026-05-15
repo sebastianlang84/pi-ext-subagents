@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+SemVer impact: patch.
+
+- Centralize subagent result classification/diagnostics/parallel-summary policy and reuse it for API and display error semantics.
+
 ## 1.1.2 - 2026-05-16
 
 SemVer impact: patch.

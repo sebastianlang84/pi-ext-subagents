@@ -46,6 +46,7 @@ test("builds a collapsed single-result display model", () => {
 test("builds parallel display states for running, failed, and completed results", () => {
 	const running = { ...result("slow", "", -1), messages: [] };
 	const failed = { ...result("bad", "Failed", 1), errorMessage: "subagent exploded", stopReason: "error" };
+	const failedWithStderr = { ...result("stderr", "Partial", 1), stderr: "stderr diagnostic" };
 	const stoppedWithError = { ...result("stopped", "Stopped", 0), errorMessage: "model stopped with error", stopReason: "error" };
 	const passed = result("ok", "Done");
 
@@ -62,14 +63,18 @@ test("builds parallel display states for running, failed, and completed results"
 	assert.equal(runningModel.footer, undefined);
 
 	const completedModel = buildResultDisplayModel(
-		{ content: [{ type: "text", text: "done" }], details: { mode: "parallel", agentScope: "user", projectAgentsDir: null, results: [failed, passed] } },
+		{
+			content: [{ type: "text", text: "done" }],
+			details: { mode: "parallel", agentScope: "user", projectAgentsDir: null, results: [failed, failedWithStderr, passed] },
+		},
 		false,
 		10,
 	);
 
-	assert.equal(completedModel.header, "parallel 1/2 tasks");
+	assert.equal(completedModel.header, "parallel 1/3 tasks");
 	assert.equal(completedModel.tone, "warning");
 	assert.equal(completedModel.sections[0].error, "subagent exploded");
+	assert.equal(completedModel.sections[1].error, "stderr diagnostic");
 	assert.match(stringifyResultDisplayModel(completedModel), /## bad error/);
 
 	const stoppedModel = buildResultDisplayModel(

@@ -14,14 +14,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Add model/tools/file path/realpath information to the approval prompt and headless error details.
    - Consider stronger warnings for project agents with mutation-capable tools such as `bash`, `write`, or `edit`.
 
-3. [ ] Introduce a result-summary policy seam.
-   - Current summary policy is hard-coded in `buildParallelResultSummary`.
-   - Proposed interface: centralize success/failure classification, diagnostic precedence, truncation limits, and possibly `outputMode`.
-   - Benefit: single, parallel, chain, display, and API result semantics stay consistent.
-
 ## P2 (User value / orchestration features)
 
-4. [ ] Explore optional fanout-then-reduce orchestration.
+3. [ ] Explore optional fanout-then-reduce orchestration.
    - Idea: run multiple subagents in parallel, then pass their outputs into a reducer agent.
    - Possible interface:
      ```json
@@ -32,23 +27,23 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
      ```
    - Validate whether this belongs in `subagent` or should remain a prompt pattern before implementing.
 
-5. [ ] Add optional per-task runtime controls.
+4. [ ] Add optional per-task runtime controls.
    - Candidate options: `timeoutMs`, `maxOutputChars`, `outputMode: "summary" | "full"`.
    - Keep defaults conservative and backward-compatible.
    - Add tests for timeout/error result semantics before implementation.
 
-6. [ ] Add a prompt-injection effectiveness test for subagent routing.
+5. [ ] Add a prompt-injection effectiveness test for subagent routing.
    - Goal: measure whether compact `subagent` tool metadata teaches agents good delegation choices without loading the global `subagent-workflow` skill.
    - Suggested fixture set: tiny task should not delegate; broad codebase question should use scout/reviewer; risky change should request review/oracle; independent checks should use parallel; dependent handoff should use chain; project-agent prompt should preserve trust caution.
    - Compare decisions with tool metadata only vs. with the `subagent-workflow` skill loaded before deciding whether the skill can be retired.
 
-7. [ ] Improve README with advanced workflow recipes.
+6. [ ] Improve README with advanced workflow recipes.
    - Document recommended patterns: scout→worker→reviewer, parallel review lanes, chain handoff, project-agent trust guidance, and failure semantics.
    - Include a troubleshooting section for unknown agents, invalid frontmatter, JSON-mode diagnostics, and partial parallel failures.
 
 ## P3 (Maintenance / release)
 
-8. [ ] Consider moving task prompts out of process argv.
+7. [ ] Consider moving task prompts out of process argv.
    - Current behavior: `runSingleAgent` passes the user task as a CLI argument.
    - Potential issues: argv length limits and prompt visibility in process lists.
    - Investigate Pi CLI support for stdin or temp-file prompt input before changing.

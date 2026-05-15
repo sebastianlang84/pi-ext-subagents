@@ -1,5 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
+import { getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
 import { getFinalOutput, type SingleResult, type SubagentDetails } from "./run.js";
 
 export type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
@@ -71,13 +72,9 @@ export function getDisplayItems(messages: Message[]): DisplayItem[] {
 	return items;
 }
 
-function isErrorResult(result: SingleResult): boolean {
-	return result.exitCode !== -1 && (result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted");
-}
-
 function statusForResult(result: SingleResult): DisplayTone {
 	if (result.exitCode === -1) return "running";
-	return isErrorResult(result) ? "error" : "success";
+	return isSuccessfulResult(result) ? "success" : "error";
 }
 
 function sliceItems(items: DisplayItem[], limit?: number): { items: DisplayItem[]; skippedItems: number } {
@@ -89,7 +86,7 @@ function resultSection(result: SingleResult, expanded: boolean, limit?: number):
 	const allItems = getDisplayItems(result.messages);
 	const { items, skippedItems } = sliceItems(allItems, expanded ? undefined : limit);
 	const status = statusForResult(result);
-	const error = status === "error" ? result.errorMessage : undefined;
+	const error = status === "error" ? getFailureDiagnostic(result) || undefined : undefined;
 	return {
 		heading: result.step ? `Step ${result.step}: ${result.agent}` : result.agent,
 		status,
