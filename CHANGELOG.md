@@ -4,6 +4,7 @@
 
 - Preserve structured result details for aborted subagents and subprocess spawn failures instead of losing them to thrown errors.
 - Treat partial parallel subagent failures as tool errors and prefer error/stderr diagnostics over partial assistant output in parallel summaries.
+- Add compact `subagent` prompt metadata plus a token-injection budget check for tool descriptions, schema, snippets, and guidelines.
 - Preserve all text parts from the final assistant message in subagent outputs instead of only the first text part.
 
 ## 1.1.1 - 2026-05-14

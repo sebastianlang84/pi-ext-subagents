@@ -15,6 +15,7 @@ git clone https://github.com/sebastianlang84/pi-ext-subagents.git
 cd pi-ext-subagents
 npm install
 npm test
+npm run check:token-injection
 pi install .
 ```
 
@@ -70,6 +71,12 @@ Run a chain; `{previous}` is replaced with the previous step's final output:
 }
 ```
 
+## Workflow guidance
+
+The tool injects compact prompt guidance for when to delegate: use subagents for context isolation, independent review, or bounded specialist work; skip tiny tasks. Parallel mode is best for independent lanes, while chain mode is best for handoffs that depend on prior output. The main agent remains responsible for final judgment.
+
+Keep delegated prompts explicit: goal, scope, constraints, allowed paths/tools, stop conditions, and desired output shape.
+
 ## Agent scope and security
 
 By default only user agents are available:
@@ -103,6 +110,16 @@ Only disable confirmation for repositories you trust.
 Malformed JSON stdout events from subagent JSON mode are ignored so later valid events can continue; each ignored event is recorded in the subagent result's stderr diagnostics.
 
 Aborted subagents and subprocess spawn failures are returned as structured result details (`stopReason`, diagnostics, and non-success tool results) so callers can inspect partial output instead of receiving an unstructured thrown error.
+
+## Token-injection budget
+
+Run the static prompt-footprint gate before increasing tool descriptions, parameter descriptions, `promptSnippet`, or `promptGuidelines`:
+
+```bash
+npm run check:token-injection
+```
+
+The report estimates tokens from normalized prompt-facing text and fails when the registered `subagent` tool exceeds its budget.
 
 ## Compatibility
 

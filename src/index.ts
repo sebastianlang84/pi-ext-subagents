@@ -194,7 +194,13 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "subagent",
 		label: "Subagent",
-		description: "Run subagents in isolated context: single, parallel, or chain. Default scope: user; set agentScope for project agents.",
+		description: "Delegate scoped work to specialized Pi subagents in isolated contexts. Supports single, parallel, and chain modes; default agent scope is user.",
+		promptSnippet: "Delegate scoped work to isolated subagents; supports single, parallel, and chain.",
+		promptGuidelines: [
+			"Use subagent for context isolation, independent review, or bounded specialist work; skip tiny tasks.",
+			"Give subagent prompts goal, scope, constraints, allowed paths/tools, stop conditions, and output shape; main agent owns final judgment.",
+			"Use subagent parallel for independent lanes, chain for dependent handoffs, and project scope only for trusted repos.",
+		],
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
