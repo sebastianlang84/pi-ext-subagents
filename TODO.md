@@ -52,8 +52,3 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Current behavior: `runSingleAgent` passes the user task as a CLI argument.
    - Potential issues: argv length limits and prompt visibility in process lists.
    - Investigate Pi CLI support for stdin or temp-file prompt input before changing.
-
-9. [ ] Add local install smoke before release.
-   - Run `pi install .`, restart or `/reload`, then confirm the `subagent` tool appears and can run a trivial user agent.
-
-10. [ ] Choose the next release version and move `CHANGELOG.md` `Unreleased` entries into that release section before publishing/tagging.
