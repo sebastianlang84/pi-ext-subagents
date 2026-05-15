@@ -117,9 +117,13 @@ function isSuccessfulResult(result: SingleResult): boolean {
 export function buildParallelResultSummary(results: SingleResult[]): { text: string; isError: boolean; successCount: number } {
 	const successCount = results.filter(isSuccessfulResult).length;
 	const summaries = results.map((r) => {
-		const output = getFinalOutput(r.messages).trim() || r.errorMessage || r.stderr;
+		const successful = isSuccessfulResult(r);
+		const finalOutput = getFinalOutput(r.messages).trim();
+		const errorMessage = r.errorMessage?.trim() ?? "";
+		const stderr = r.stderr.trim();
+		const output = successful ? finalOutput : errorMessage || stderr || finalOutput;
 		const preview = output.slice(0, 100) + (output.length > 100 ? "..." : "");
-		return `[${r.agent}] ${isSuccessfulResult(r) ? "completed" : "failed"}: ${preview || "(no output)"}`;
+		return `[${r.agent}] ${successful ? "completed" : "failed"}: ${preview || "(no output)"}`;
 	});
 	return {
 		text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}`,

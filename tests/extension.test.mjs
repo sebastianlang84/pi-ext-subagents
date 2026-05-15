@@ -58,6 +58,26 @@ test("parallel tool results mark partial failures as errors and surface diagnost
 	assert.match(result.content[0].text, /\[stopped\] failed: model stopped/);
 });
 
+test("parallel summaries prefer failure diagnostics over partial assistant output", () => {
+	const results = [
+		agentResult("bad", "misleading partial assistant text", 1, {
+			errorMessage: "child exited 1",
+			stderr: "spawn failed",
+		}),
+	];
+	const result = buildParallelToolResult(results, {
+		mode: "parallel",
+		agentScope: "user",
+		projectAgentsDir: null,
+		invalidAgents: [],
+		results,
+	});
+
+	assert.equal(result.isError, true);
+	assert.match(result.content[0].text, /\[bad\] failed: child exited 1/);
+	assert.doesNotMatch(result.content[0].text, /misleading partial assistant text/);
+});
+
 test("extension loads and registers the subagent tool", () => {
 	const tool = registerExtension();
 	assert.equal(tool.name, "subagent");

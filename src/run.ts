@@ -95,9 +95,10 @@ export function getFinalOutput(messages: Message[]): string {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const msg = messages[i];
 		if (msg.role === "assistant") {
-			for (const part of msg.content) {
-				if (part.type === "text") return part.text;
-			}
+			return msg.content
+				.filter((part) => part.type === "text")
+				.map((part) => part.text)
+				.join("\n\n");
 		}
 	}
 	return "";

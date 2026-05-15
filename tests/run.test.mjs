@@ -43,6 +43,22 @@ function startRun(fake, extra = {}) {
 	});
 }
 
+test("getFinalOutput preserves all text parts from the final assistant message", () => {
+	const messages = [
+		message("older output"),
+		{
+			role: "assistant",
+			content: [
+				{ type: "text", text: "first part" },
+				{ type: "tool_use", id: "tool-1", name: "read", args: { path: "README.md" } },
+				{ type: "text", text: "second part" },
+			],
+		},
+	];
+
+	assert.equal(getFinalOutput(messages), "first part\n\nsecond part");
+});
+
 test("parses partial JSON lines, ignores malformed events, and aggregates usage", async () => {
 	const fake = new FakeProcess();
 	const promise = startRun(fake);
