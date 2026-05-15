@@ -71,6 +71,14 @@ Run a chain; `{previous}` is replaced with the previous step's final output:
 }
 ```
 
+## Workspace and `cwd` semantics
+
+Agent discovery is rooted at Pi's current workspace (`ctx.cwd`). Project-local agents are discovered from the nearest `.pi/agents` directory at or above that workspace, not from a per-run execution `cwd`.
+
+Execution uses the step `cwd` when provided, otherwise it falls back to the current workspace. In single mode this is the top-level `cwd`; in parallel and chain mode it is each task/step's `cwd`.
+
+Prefer absolute `cwd` values. The extension validates that `cwd` is a non-empty string but does not resolve or normalize it before passing it to the child Pi process.
+
 ## Workflow guidance
 
 The tool injects compact prompt guidance for when to delegate: use subagents for context isolation, independent review, or bounded specialist work; skip tiny tasks. Parallel mode is best for independent lanes, while chain mode is best for handoffs that depend on prior output. The main agent remains responsible for final judgment.

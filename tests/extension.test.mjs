@@ -9,9 +9,10 @@ const jiti = createJiti(import.meta.url);
 const extensionModule = await jiti.import("../src/index.ts");
 const importedExtension = await jiti.import("../src/index.ts", { default: true });
 const extension = typeof importedExtension === "function" ? importedExtension : importedExtension.default;
-const { buildParallelToolResult } = extensionModule;
+const { buildParallelToolResult, createSubagentTool } = extensionModule;
 
-function registerExtension() {
+function registerExtension(deps) {
+	if (deps) return createSubagentTool(deps);
 	let registered;
 	extension({ registerTool(tool) { registered = tool; } });
 	return registered;
@@ -21,6 +22,28 @@ function writeProjectAgent(project, name = "project-agent") {
 	const file = path.join(project, ".pi", "agents", `${name}.md`);
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, `---\nname: ${name}\ndescription: Project controlled\n---\n\nSystem prompt\n`);
+}
+
+function testCtx(cwd, overrides = {}) {
+	return { cwd, hasUI: false, ui: { confirm: async () => false }, ...overrides };
+}
+
+function recordingRunner(calls) {
+	return async (options) => {
+		calls.push({
+			defaultCwd: options.defaultCwd,
+			cwd: options.cwd,
+			agentName: options.agentName,
+			task: options.task,
+			step: options.step,
+		});
+		const agent = options.agents.find((candidate) => candidate.name === options.agentName);
+		return agentResult(options.agentName, `output:${options.task}`, 0, {
+			agentSource: agent?.source ?? "unknown",
+			task: options.task,
+			step: options.step,
+		});
+	};
 }
 
 function agentResult(agent, text, exitCode = 0, overrides = {}) {
@@ -135,6 +158,123 @@ test("execute reports invalid requested agents before spawning", async () => {
 	assert.match(result.content[0].text, /Missing required frontmatter/);
 	assert.equal(result.details.invalidAgents.length, 1);
 	assert.equal(result.details.results.length, 0);
+});
+
+test("single mode discovers project agents from context cwd and executes from request cwd", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-single-"));
+	const project = path.join(root, "repo");
+	const runDir = path.join(root, "run-here");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	fs.mkdirSync(runDir, { recursive: true });
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{ agent: "runner", task: "run", agentScope: "project", confirmProjectAgents: false, cwd: runDir },
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(result.content[0].text, "output:run");
+	assert.deepEqual(calls, [{ defaultCwd: project, cwd: runDir, agentName: "runner", task: "run", step: undefined }]);
+});
+
+test("parallel mode discovers project agents from context cwd and passes each task cwd to execution", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-parallel-"));
+	const project = path.join(root, "repo");
+	const cwdA = path.join(root, "a");
+	const cwdB = path.join(root, "b");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	for (const dir of [cwdA, cwdB]) fs.mkdirSync(dir, { recursive: true });
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{
+			agentScope: "project",
+			confirmProjectAgents: false,
+			tasks: [
+				{ agent: "runner", task: "one", cwd: cwdA },
+				{ agent: "runner", task: "two", cwd: cwdB },
+			],
+		},
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(result.details.results.length, 2);
+	assert.deepEqual(
+		calls.sort((left, right) => left.task.localeCompare(right.task)),
+		[
+			{ defaultCwd: project, cwd: cwdA, agentName: "runner", task: "one", step: undefined },
+			{ defaultCwd: project, cwd: cwdB, agentName: "runner", task: "two", step: undefined },
+		],
+	);
+});
+
+test("chain mode discovers project agents from context cwd and passes each step cwd", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-chain-"));
+	const project = path.join(root, "repo");
+	const cwdA = path.join(root, "a");
+	const cwdB = path.join(root, "b");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	for (const dir of [cwdA, cwdB]) fs.mkdirSync(dir, { recursive: true });
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{
+			agentScope: "project",
+			confirmProjectAgents: false,
+			chain: [
+				{ agent: "runner", task: "first", cwd: cwdA },
+				{ agent: "runner", task: "second {previous}", cwd: cwdB },
+			],
+		},
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(result.content[0].text, "output:second output:first");
+	assert.deepEqual(calls, [
+		{ defaultCwd: project, cwd: cwdA, agentName: "runner", task: "first", step: 1 },
+		{ defaultCwd: project, cwd: cwdB, agentName: "runner", task: "second output:first", step: 2 },
+	]);
+});
+
+test("project-agent discovery uses context cwd, not the requested execution cwd", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-discovery-"));
+	const project = path.join(root, "repo");
+	const runProject = path.join(root, "run-repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	writeProjectAgent(project, "ctx-agent");
+	writeProjectAgent(runProject, "run-agent");
+	const tool = registerExtension({ runSingleAgent: async () => assert.fail("must not execute unknown agents") });
+
+	const result = await tool.execute(
+		"id",
+		{ agent: "run-agent", task: "run", agentScope: "project", confirmProjectAgents: false, cwd: runProject },
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, true);
+	assert.match(result.content[0].text, /Unknown agent: "run-agent"/);
+	assert.match(result.content[0].text, /Available agents: ctx-agent \(project\)/);
+	assert.equal(result.details.projectAgentsDir, path.join(project, ".pi", "agents"));
 });
 
 test("project-local agents fail closed in headless mode by default", async () => {

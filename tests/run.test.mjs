@@ -78,6 +78,35 @@ test("parses partial JSON lines, ignores malformed events, and aggregates usage"
 	assert.match(result.stderr, /Ignored malformed JSON/);
 });
 
+test("spawns in default cwd unless an explicit cwd override is provided", async () => {
+	const defaultFake = new FakeProcess();
+	let defaultSpawnCwd;
+	const defaultRun = startRun(defaultFake, {
+		defaultCwd: "/tmp/default-cwd",
+		spawner: (_command, _args, options) => {
+			defaultSpawnCwd = options.cwd;
+			return defaultFake;
+		},
+	});
+	setImmediate(() => defaultFake.close(0));
+	await defaultRun;
+	assert.equal(defaultSpawnCwd, "/tmp/default-cwd");
+
+	const explicitFake = new FakeProcess();
+	let explicitSpawnCwd;
+	const explicitRun = startRun(explicitFake, {
+		defaultCwd: "/tmp/default-cwd",
+		cwd: "/tmp/explicit-cwd",
+		spawner: (_command, _args, options) => {
+			explicitSpawnCwd = options.cwd;
+			return explicitFake;
+		},
+	});
+	setImmediate(() => explicitFake.close(0));
+	await explicitRun;
+	assert.equal(explicitSpawnCwd, "/tmp/explicit-cwd");
+});
+
 test("emits partial updates as running until the child closes", async () => {
 	const fake = new FakeProcess();
 	const seenExitCodes = [];

@@ -17,12 +17,12 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { type ExtensionAPI, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { discoverAgents, getProjectAgentTrustDecision, type AgentScope, type InvalidAgentDiagnostic } from "./agents.js";
+import { discoverAgents as defaultDiscoverAgents, getProjectAgentTrustDecision, type AgentScope, type InvalidAgentDiagnostic } from "./agents.js";
 import { buildResultDisplayModel, type DisplayItem, type DisplayTone } from "./display.js";
 import { normalizeSubagentRequest, requestedAgentNames, RequestValidationError } from "./request.js";
 import {
 	getFinalOutput,
-	runSingleAgent,
+	runSingleAgent as defaultRunSingleAgent,
 	type OnUpdateCallback,
 	type SingleResult,
 	type SubagentDetails,
@@ -190,8 +190,18 @@ const SubagentParams = Type.Object({
 	cwd: Type.Optional(Type.String()),
 });
 
-export default function (pi: ExtensionAPI) {
-	pi.registerTool({
+type SubagentToolDefinition = Parameters<ExtensionAPI["registerTool"]>[0];
+
+interface SubagentToolDeps {
+	discoverAgents?: typeof defaultDiscoverAgents;
+	runSingleAgent?: typeof defaultRunSingleAgent;
+}
+
+export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDefinition {
+	const discoverAgentsImpl = deps.discoverAgents ?? defaultDiscoverAgents;
+	const runSingleAgentImpl = deps.runSingleAgent ?? defaultRunSingleAgent;
+
+	return {
 		name: "subagent",
 		label: "Subagent",
 		description: "Delegate scoped work to specialized Pi subagents in isolated contexts. Supports single, parallel, and chain modes; default agent scope is user.",
@@ -212,7 +222,7 @@ export default function (pi: ExtensionAPI) {
 					params.agentScope === "project" || params.agentScope === "both" || params.agentScope === "user"
 						? params.agentScope
 						: "user";
-				const discovery = discoverAgents(ctx.cwd, scope);
+				const discovery = discoverAgentsImpl(ctx.cwd, scope);
 				const mode = params.chain !== undefined ? "chain" : params.tasks !== undefined ? "parallel" : "single";
 				const message = error instanceof RequestValidationError ? error.message : `Invalid parameters: ${String(error)}`;
 				const available = formatAvailableAgents(discovery.agents);
@@ -224,7 +234,7 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			const discovery = discoverAgents(ctx.cwd, plan.agentScope);
+			const discovery = discoverAgentsImpl(ctx.cwd, plan.agentScope);
 			const agents = discovery.agents;
 
 			const makeDetails =
@@ -308,7 +318,7 @@ export default function (pi: ExtensionAPI) {
 							}
 						: undefined;
 
-					const result = await runSingleAgent({
+					const result = await runSingleAgentImpl({
 						defaultCwd: ctx.cwd,
 						agents,
 						agentName: step.agent,
@@ -361,7 +371,7 @@ export default function (pi: ExtensionAPI) {
 				};
 
 				const results = await mapWithConcurrencyLimit(plan.steps, MAX_CONCURRENCY, async (step, index) => {
-					const result = await runSingleAgent({
+					const result = await runSingleAgentImpl({
 						defaultCwd: ctx.cwd,
 						agents,
 						agentName: step.agent,
@@ -385,7 +395,7 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const step = plan.steps[0];
-			const result = await runSingleAgent({
+			const result = await runSingleAgentImpl({
 				defaultCwd: ctx.cwd,
 				agents,
 				agentName: step.agent,
@@ -530,5 +540,9 @@ export default function (pi: ExtensionAPI) {
 			if (model.expandHint) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 			return new Text(text, 0, 0);
 		},
-	});
+	};
+}
+
+export default function (pi: ExtensionAPI) {
+	pi.registerTool(createSubagentTool());
 }
