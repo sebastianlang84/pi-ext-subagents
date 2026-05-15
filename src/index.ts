@@ -114,6 +114,29 @@ function isSuccessfulResult(result: SingleResult): boolean {
 	return result.exitCode === 0 && result.stopReason !== "error" && result.stopReason !== "aborted";
 }
 
+export function buildParallelResultSummary(results: SingleResult[]): { text: string; isError: boolean; successCount: number } {
+	const successCount = results.filter(isSuccessfulResult).length;
+	const summaries = results.map((r) => {
+		const output = getFinalOutput(r.messages).trim() || r.errorMessage || r.stderr;
+		const preview = output.slice(0, 100) + (output.length > 100 ? "..." : "");
+		return `[${r.agent}] ${isSuccessfulResult(r) ? "completed" : "failed"}: ${preview || "(no output)"}`;
+	});
+	return {
+		text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}`,
+		isError: successCount !== results.length,
+		successCount,
+	};
+}
+
+export function buildParallelToolResult(results: SingleResult[], details: SubagentDetails) {
+	const summary = buildParallelResultSummary(results);
+	return {
+		content: [{ type: "text" as const, text: summary.text }],
+		details,
+		isError: summary.isError || undefined,
+	};
+}
+
 async function mapWithConcurrencyLimit<TIn, TOut>(
 	items: TIn[],
 	concurrency: number,
@@ -348,16 +371,7 @@ export default function (pi: ExtensionAPI) {
 					return result;
 				});
 
-				const successCount = results.filter(isSuccessfulResult).length;
-				const summaries = results.map((r) => {
-					const output = getFinalOutput(r.messages);
-					const preview = output.slice(0, 100) + (output.length > 100 ? "..." : "");
-					return `[${r.agent}] ${isSuccessfulResult(r) ? "completed" : "failed"}: ${preview || "(no output)"}`;
-				});
-				return {
-					content: [{ type: "text", text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}` }],
-					details: makeDetails("parallel")(results),
-				};
+				return buildParallelToolResult(results, makeDetails("parallel")(results));
 			}
 
 			const step = plan.steps[0];

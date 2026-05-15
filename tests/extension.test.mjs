@@ -6,8 +6,10 @@ import test from "node:test";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url);
+const extensionModule = await jiti.import("../src/index.ts");
 const importedExtension = await jiti.import("../src/index.ts", { default: true });
 const extension = typeof importedExtension === "function" ? importedExtension : importedExtension.default;
+const { buildParallelToolResult } = extensionModule;
 
 function registerExtension() {
 	let registered;
@@ -20,6 +22,41 @@ function writeProjectAgent(project, name = "project-agent") {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, `---\nname: ${name}\ndescription: Project controlled\n---\n\nSystem prompt\n`);
 }
+
+function agentResult(agent, text, exitCode = 0, overrides = {}) {
+	return {
+		agent,
+		agentSource: "user",
+		task: `task-${agent}`,
+		exitCode,
+		stderr: "",
+		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+		messages: text
+			? [{ role: "assistant", content: [{ type: "text", text }] }]
+			: [],
+		...overrides,
+	};
+}
+
+test("parallel tool results mark partial failures as errors and surface diagnostics", () => {
+	const results = [
+		agentResult("ok", "done"),
+		agentResult("bad", "", 1, { stderr: "spawn failed" }),
+		agentResult("stopped", "   ", 0, { errorMessage: "model stopped", stopReason: "error" }),
+	];
+	const result = buildParallelToolResult(results, {
+		mode: "parallel",
+		agentScope: "user",
+		projectAgentsDir: null,
+		invalidAgents: [],
+		results,
+	});
+
+	assert.equal(result.isError, true);
+	assert.match(result.content[0].text, /Parallel: 1\/3 succeeded/);
+	assert.match(result.content[0].text, /\[bad\] failed: spawn failed/);
+	assert.match(result.content[0].text, /\[stopped\] failed: model stopped/);
+});
 
 test("extension loads and registers the subagent tool", () => {
 	const tool = registerExtension();

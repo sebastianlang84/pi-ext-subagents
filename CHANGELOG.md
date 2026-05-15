@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Treat partial parallel subagent failures as tool errors and include stderr/error diagnostics in parallel summaries when no assistant output exists.
+
 ## 1.1.1 - 2026-05-14
 
 - Surface invalid agent-file diagnostics in subagent error details instead of dropping them.
