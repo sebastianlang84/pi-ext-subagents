@@ -39,4 +39,4 @@ Status: Alle Architektur-Deepening-Todos aus dieser Datei sind umgesetzt und mit
 
 ## Verifikation
 
-- `npm test` — 23/23 Tests grün am 2026-05-14.
+- `npm test` — 26/26 Tests grün am 2026-05-14.
