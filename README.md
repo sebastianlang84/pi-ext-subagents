@@ -105,7 +105,7 @@ or combine both sources:
 { "agentScope": "both" }
 ```
 
-Project-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution. In headless/JSON/print modes, it fails closed unless you explicitly set:
+Project-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution and shows the agent model, tools, file path/realpath, plus warnings for mutation-capable tools such as `bash`, `write`, and `edit`. In headless/JSON/print modes, it fails closed with the same diagnostics unless you explicitly set:
 
 ```json
 { "confirmProjectAgents": false }

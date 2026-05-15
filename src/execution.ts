@@ -2,6 +2,7 @@ import * as os from "node:os";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import {
 	discoverAgents as defaultDiscoverAgents,
+	formatProjectAgentTrustDiagnostics,
 	getProjectAgentTrustDecision,
 	type AgentScope,
 	type InvalidAgentDiagnostic,
@@ -160,14 +161,13 @@ export async function executeSubagentPlan(
 
 	const trustDecision = getProjectAgentTrustDecision(agents, requestedAgentNames(plan), plan.confirmProjectAgents);
 	if (trustDecision.requiresApproval) {
-		const names = trustDecision.projectAgents.map((a) => a.name).join(", ");
-		const dir = discovery.projectAgentsDir ?? "(unknown)";
+		const diagnostics = formatProjectAgentTrustDiagnostics(trustDecision.projectAgents, discovery.projectAgentsDir);
 		if (!ctx.hasUI) {
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Canceled: project-local agents require interactive confirmation in this mode. Set confirmProjectAgents: false only for trusted repositories.\nAgents: ${names}\nSource: ${dir}`,
+						text: `Canceled: project-local agents require interactive confirmation in this mode. Set confirmProjectAgents: false only for trusted repositories.\n${diagnostics}`,
 					},
 				],
 				details: makeDetails(plan.mode)([]),
@@ -177,7 +177,7 @@ export async function executeSubagentPlan(
 
 		const ok = await confirmProjectAgents(
 			"Run project-local agents?",
-			`Agents: ${names}\nSource: ${dir}\n\nProject agents are repo-controlled. Only continue for trusted repositories.`,
+			`${diagnostics}\n\nProject agents are repo-controlled. Only continue for trusted repositories.`,
 		);
 		if (!ok) {
 			return {

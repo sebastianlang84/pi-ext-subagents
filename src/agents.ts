@@ -37,6 +37,11 @@ export interface ProjectAgentTrustDecision {
 	reason?: string;
 }
 
+const MUTATION_CAPABLE_TOOLS = new Set(["bash", "write", "edit"]);
+const MAX_DIAGNOSTIC_FIELD_CHARS = 120;
+const MAX_DIAGNOSTIC_PATH_CHARS = 300;
+const MAX_DIAGNOSTIC_AGENTS = 8;
+
 function normalizeRequiredString(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
@@ -188,6 +193,74 @@ export function getProjectAgentTrustDecision(
 		projectAgents,
 		reason: "Project-local agents are repo-controlled and require trust approval before execution.",
 	};
+}
+
+function realpathOrOriginal(filePath: string): string {
+	try {
+		return fs.realpathSync.native(filePath);
+	} catch {
+		return filePath;
+	}
+}
+
+function sanitizeDiagnosticValue(value: string, maxChars: number): string {
+	const sanitized = value
+		.replace(/[\r\n\t]+/g, " ")
+		.replace(/[\u0000-\u001f\u007f]/g, "")
+		.trim();
+	if (sanitized.length <= maxChars) return sanitized;
+	return `${sanitized.slice(0, Math.max(0, maxChars - 3))}...`;
+}
+
+function formatPathWithRealpath(filePath: string): string {
+	const realpath = realpathOrOriginal(filePath);
+	const formatted = realpath === filePath ? filePath : `${filePath} -> ${realpath}`;
+	return sanitizeDiagnosticValue(formatted, MAX_DIAGNOSTIC_PATH_CHARS);
+}
+
+function formatDiagnosticField(value: string): string {
+	return sanitizeDiagnosticValue(value, MAX_DIAGNOSTIC_FIELD_CHARS);
+}
+
+function formatDiagnosticToolList(tools: string[]): string {
+	return sanitizeDiagnosticValue(tools.join(", "), MAX_DIAGNOSTIC_FIELD_CHARS);
+}
+
+export function getMutationCapableTools(agent: Pick<AgentConfig, "tools">): string[] {
+	if (!agent.tools) return [];
+	const declaredTools = new Set(agent.tools.map((tool) => tool.trim().toLowerCase()));
+	return [...MUTATION_CAPABLE_TOOLS].filter((tool) => declaredTools.has(tool));
+}
+
+export function formatProjectAgentTrustDiagnostics(projectAgents: AgentConfig[], projectAgentsDir: string | null): string {
+	const lines: string[] = [];
+	const listedAgents = projectAgents.slice(0, MAX_DIAGNOSTIC_AGENTS);
+	const remainingAgents = projectAgents.length - listedAgents.length;
+	const mutationWarnings = projectAgents
+		.map((agent) => ({ agent, tools: getMutationCapableTools(agent) }))
+		.filter((entry) => entry.tools.length > 0);
+	const listedMutationWarnings = mutationWarnings.slice(0, MAX_DIAGNOSTIC_AGENTS);
+	const remainingMutationWarnings = mutationWarnings.length - listedMutationWarnings.length;
+
+	if (mutationWarnings.length > 0) {
+		const warningText = listedMutationWarnings
+			.map((entry) => `${formatDiagnosticField(entry.agent.name)} (${entry.tools.join(", ")})`)
+			.join("; ");
+		lines.push(
+			`Warning: mutation-capable project-agent tools requested: ${warningText}${remainingMutationWarnings > 0 ? `; +${remainingMutationWarnings} more` : ""}.`,
+		);
+	}
+
+	lines.push(`Project agents dir: ${projectAgentsDir ? formatPathWithRealpath(projectAgentsDir) : "(unknown)"}`);
+	lines.push("Project agent details:");
+	for (const agent of listedAgents) {
+		const name = formatDiagnosticField(agent.name);
+		const model = agent.model ? formatDiagnosticField(agent.model) : "(default)";
+		const tools = agent.tools?.length ? formatDiagnosticToolList(agent.tools) : "(not declared; Pi defaults may apply)";
+		lines.push(`- ${name}: model=${model}; tools=${tools}; file=${formatPathWithRealpath(agent.filePath)}`);
+	}
+	if (remainingAgents > 0) lines.push(`- ... ${remainingAgents} more project agent${remainingAgents === 1 ? "" : "s"}`);
+	return lines.join("\n");
 }
 
 export function formatAgentList(agents: AgentConfig[], maxItems: number): { text: string; remaining: number } {

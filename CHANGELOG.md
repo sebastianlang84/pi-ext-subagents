@@ -5,6 +5,7 @@
 SemVer impact: patch.
 
 - Centralize subagent result classification/diagnostics/parallel-summary policy and reuse it for API and display error semantics.
+- Show richer project-agent trust diagnostics in approval/headless failure paths, including model, tools, paths/realpaths, and mutation-tool warnings.
 
 ## 1.1.2 - 2026-05-16
 

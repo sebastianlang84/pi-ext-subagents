@@ -20,10 +20,11 @@ function registerExtension(deps) {
 	return registered;
 }
 
-function writeProjectAgent(project, name = "project-agent") {
+function writeProjectAgent(project, name = "project-agent", extraFrontmatter = "") {
 	const file = path.join(project, ".pi", "agents", `${name}.md`);
 	fs.mkdirSync(path.dirname(file), { recursive: true });
-	fs.writeFileSync(file, `---\nname: ${name}\ndescription: Project controlled\n---\n\nSystem prompt\n`);
+	const extra = extraFrontmatter ? `\n${extraFrontmatter}` : "";
+	fs.writeFileSync(file, `---\nname: ${name}\ndescription: Project controlled${extra}\n---\n\nSystem prompt\n`);
 }
 
 function testCtx(cwd, overrides = {}) {
@@ -307,7 +308,7 @@ test("project-local agents fail closed in headless mode by default", async () =>
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-headless-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "danger");
+	writeProjectAgent(project, "danger", "tools: read, bash\nmodel: model-a");
 	const tool = registerExtension();
 
 	const result = await tool.execute(
@@ -320,6 +321,9 @@ test("project-local agents fail closed in headless mode by default", async () =>
 
 	assert.equal(result.isError, true);
 	assert.match(result.content[0].text, /require interactive confirmation/);
+	assert.match(result.content[0].text, /Warning: mutation-capable project-agent tools requested: danger \(bash\)\./);
+	assert.match(result.content[0].text, /Project agents dir:/);
+	assert.match(result.content[0].text, /danger: model=model-a; tools=read, bash; file=/);
 	assert.equal(result.details.results.length, 0);
 });
 
@@ -327,19 +331,30 @@ test("interactive project-local confirmation can cancel before execution", async
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-confirm-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "danger");
+	writeProjectAgent(project, "danger", "tools: read, write");
 	const tool = registerExtension();
-	let prompted = false;
+	let promptMessage = "";
 
 	const result = await tool.execute(
 		"id",
 		{ agent: "danger", task: "run", agentScope: "project" },
 		undefined,
 		undefined,
-		{ cwd: project, hasUI: true, ui: { confirm: async () => { prompted = true; return false; } } },
+		{
+			cwd: project,
+			hasUI: true,
+			ui: {
+				confirm: async (_title, message) => {
+					promptMessage = message;
+					return false;
+				},
+			},
+		},
 	);
 
-	assert.equal(prompted, true);
+	assert.match(promptMessage, /Warning: mutation-capable project-agent tools requested: danger \(write\)\./);
+	assert.match(promptMessage, /Project agent details:/);
+	assert.match(promptMessage, /danger: model=\(default\); tools=read, write; file=/);
 	assert.match(result.content[0].text, /not approved/);
 	assert.equal(result.details.results.length, 0);
 });
