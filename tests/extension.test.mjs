@@ -7,9 +7,11 @@ import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url);
 const extensionModule = await jiti.import("../src/index.ts");
+const executionModule = await jiti.import("../src/execution.ts");
 const importedExtension = await jiti.import("../src/index.ts", { default: true });
 const extension = typeof importedExtension === "function" ? importedExtension : importedExtension.default;
 const { buildParallelToolResult, createSubagentTool } = extensionModule;
+const { executeSubagentPlan } = executionModule;
 
 function registerExtension(deps) {
 	if (deps) return createSubagentTool(deps);
@@ -60,6 +62,30 @@ function agentResult(agent, text, exitCode = 0, overrides = {}) {
 		...overrides,
 	};
 }
+
+test("execution module runs a normalized plan through injected adapters", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-execution-plan-"));
+	const calls = [];
+	const result = await executeSubagentPlan(
+		{ mode: "single", agentScope: "user", confirmProjectAgents: true, steps: [{ agent: "runner", task: "run" }] },
+		testCtx(root),
+		{
+			deps: {
+				discoverAgents: () => ({
+					agents: [{ name: "runner", description: "Runner", source: "user", filePath: "runner.md", systemPrompt: "" }],
+					projectAgentsDir: null,
+					invalidAgents: [],
+				}),
+				runSingleAgent: recordingRunner(calls),
+			},
+		},
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(result.content[0].text, "output:run");
+	assert.equal(result.details.mode, "single");
+	assert.deepEqual(calls, [{ defaultCwd: root, cwd: undefined, agentName: "runner", task: "run", step: undefined }]);
+});
 
 test("parallel tool results mark partial failures as errors and surface diagnostics", () => {
 	const results = [
