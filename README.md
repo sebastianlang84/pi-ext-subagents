@@ -87,7 +87,7 @@ Keep delegated prompts explicit: goal, scope, constraints, allowed paths/tools, 
 
 ## Advanced workflow recipes
 
-Use these as prompt patterns; the `subagent` tool does not enforce roles or sequencing beyond the requested single, parallel, or chain mode.
+Use these as prompt patterns; the `subagent` tool does not enforce roles or sequencing beyond the requested single, parallel, or chain mode. For the open fanout-then-reduce research plan, see `docs/plans/fanout-reduce.md`.
 
 ### Scout → worker → reviewer
 

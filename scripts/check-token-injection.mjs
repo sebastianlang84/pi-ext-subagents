@@ -4,10 +4,7 @@ import { createJiti } from "jiti";
 
 export const TOKEN_INJECTION_FIELDS = ["description", "parameters", "promptSnippet", "promptGuidelines"];
 
-export const defaultTokenInjectionBudgets = {
-	maxTokensPerTool: 380,
-	maxTotalTokens: 380,
-};
+export const defaultTokenInjectionBudgets = {};
 
 export function estimateTokenInjectionTokens(text) {
 	const normalized = String(text).replace(/\s+/g, " ").trim();
@@ -67,17 +64,19 @@ export async function buildSubagentTokenInjectionReport(generatedAt) {
 
 export function evaluateTokenInjectionBudget(report, budgets = defaultTokenInjectionBudgets) {
 	const issues = [];
-	for (const tool of report.tools) {
-		if (tool.total.tokens > budgets.maxTokensPerTool) {
-			issues.push({
-				label: tool.name,
-				metric: "toolTokens",
-				expected: `<= ${budgets.maxTokensPerTool}`,
-				actual: tool.total.tokens,
-			});
+	if (budgets.maxTokensPerTool !== undefined) {
+		for (const tool of report.tools) {
+			if (tool.total.tokens > budgets.maxTokensPerTool) {
+				issues.push({
+					label: tool.name,
+					metric: "toolTokens",
+					expected: `<= ${budgets.maxTokensPerTool}`,
+					actual: tool.total.tokens,
+				});
+			}
 		}
 	}
-	if (report.totals.tokens > budgets.maxTotalTokens) {
+	if (budgets.maxTotalTokens !== undefined && report.totals.tokens > budgets.maxTotalTokens) {
 		issues.push({
 			label: "all subagent tools",
 			metric: "totalTokens",
@@ -120,12 +119,14 @@ function parseCliArgs(args) {
 			gateEnabled = true;
 			if (inlineValue === undefined) i++;
 		} else if (arg === "--help") {
-			console.log("Usage: check-token-injection.mjs [--budget-gate] [--max-tool-tokens N] [--max-total-tokens N]");
+			console.log("Usage: check-token-injection.mjs [--max-tool-tokens N] [--max-total-tokens N]");
 			process.exit(0);
 		} else {
 			throw new Error(`Unknown option: ${arg}`);
 		}
 	}
+	const hasBudget = budgets.maxTokensPerTool !== undefined || budgets.maxTotalTokens !== undefined;
+	if (gateEnabled && !hasBudget) throw new Error("--budget-gate requires --max-tool-tokens and/or --max-total-tokens");
 	return { budgets, gateEnabled };
 }
 

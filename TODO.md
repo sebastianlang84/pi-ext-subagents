@@ -5,15 +5,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
 ## P2 (User value / orchestration features)
 
 1. [ ] Explore optional fanout-then-reduce orchestration.
-   - Idea: run multiple subagents in parallel, then pass their outputs into a reducer agent.
-   - Possible interface:
-     ```json
-     {
-       "tasks": [{ "agent": "scout", "task": "..." }],
-       "reduce": { "agent": "reviewer", "task": "Synthesize:\n{parallel}" }
-     }
-     ```
-   - Validate whether this belongs in `subagent` or should remain a prompt pattern before implementing.
+   - Canonical research plan: `docs/plans/fanout-reduce.md`.
+   - Routing benchmark spec: `docs/plans/subagent-routing-benchmark.md`.
+   - Next: run the benchmark to test whether tool metadata alone can trigger parallel-then-reducer behavior without explicit user prompting, while measuring false positives/schema gravity; do not prototype built-in `reduce` before bounded fanout output is implemented or otherwise enforced.
 
 2. [ ] Add optional per-task runtime controls.
    - Candidate options: `timeoutMs`, `maxOutputChars`, `outputMode: "summary" | "full"`.

@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "thresholds": {
+    "positivePassRate": 0.85,
+    "negativeFalsePositiveRate": 0.15,
+    "maxSkillPositiveRateDelta": 0.05,
+    "maxSchemaFalsePositiveDelta": 0.05
+  },
+  "fixtures": [
+    {
+      "id": "P1",
+      "group": "positive",
+      "prompt": "Research this feature from multiple angles and produce a plan we can discuss.",
+      "expectedOrchestrations": ["parallel-then-synthesis"],
+      "requiresSynthesis": true,
+      "disallowed": ["none", "single"],
+      "notes": "Should trigger independent research lanes followed by synthesis."
+    },
+    {
+      "id": "P2",
+      "group": "positive",
+      "prompt": "Assess implementation options, risks, and test strategy for this change.",
+      "expectedOrchestrations": ["parallel-then-synthesis"],
+      "requiresSynthesis": true,
+      "disallowed": ["chain"],
+      "notes": "Options, risks, and tests are independent perspectives unless the answer justifies dependencies."
+    },
+    {
+      "id": "P3",
+      "group": "positive",
+      "prompt": "Audit release readiness from independent perspectives and give one verdict.",
+      "expectedOrchestrations": ["parallel-then-synthesis"],
+      "requiresSynthesis": true,
+      "disallowed": ["single"],
+      "notes": "Independent perspectives plus one verdict should trigger fanout then synthesis."
+    },
+    {
+      "id": "P4",
+      "group": "positive",
+      "prompt": "Compare architecture tradeoffs and recommend the safest next move.",
+      "expectedOrchestrations": ["parallel-then-synthesis", "parallel"],
+      "requiresSynthesis": true,
+      "disallowed": ["none"],
+      "notes": "Parallel alone is acceptable only if the main agent explicitly performs synthesis."
+    },
+    {
+      "id": "P5",
+      "group": "positive",
+      "prompt": "Investigate a cross-cutting bug with likely code, docs, and test implications.",
+      "expectedOrchestrations": ["parallel-then-synthesis", "parallel"],
+      "requiresSynthesis": true,
+      "disallowed": ["none"],
+      "notes": "Broad cross-cutting scope should avoid an unbounded main-agent crawl."
+    },
+    {
+      "id": "N1",
+      "group": "negative",
+      "prompt": "Fix this typo in README.",
+      "expectedOrchestrations": ["none"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel", "parallel-then-synthesis", "chain"],
+      "notes": "Tiny local edit should not delegate."
+    },
+    {
+      "id": "N2",
+      "group": "negative",
+      "prompt": "Read TODO.md and tell me the next item.",
+      "expectedOrchestrations": ["none", "single"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel", "parallel-then-synthesis", "chain"],
+      "notes": "Simple local read should not trigger reducer use."
+    },
+    {
+      "id": "N3",
+      "group": "negative",
+      "prompt": "Explain what this function does.",
+      "expectedOrchestrations": ["none", "single"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel", "parallel-then-synthesis"],
+      "notes": "May use one scout if file scope is large or unknown, but not parallel by default."
+    },
+    {
+      "id": "N4",
+      "group": "negative",
+      "prompt": "Run the existing tests and summarize failures.",
+      "expectedOrchestrations": ["none"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel", "parallel-then-synthesis", "chain"],
+      "notes": "Direct command or one bounded check is enough."
+    },
+    {
+      "id": "N5",
+      "group": "negative",
+      "prompt": "Make this small linear code change.",
+      "expectedOrchestrations": ["none", "single", "chain"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel-then-synthesis"],
+      "notes": "Scout/worker can be acceptable if uncertainty exists; fanout-reduce is not."
+    },
+    {
+      "id": "S1",
+      "group": "schema-gravity",
+      "prompt": "Give a concise answer based on this one file.",
+      "expectedOrchestrations": ["none", "single"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel-then-synthesis"],
+      "notes": "Visible reduce schema must not cause reducer use."
+    },
+    {
+      "id": "S2",
+      "group": "schema-gravity",
+      "prompt": "Do a normal code review of this diff.",
+      "expectedOrchestrations": ["none", "single"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel-then-synthesis"],
+      "notes": "One reviewer or main review is sufficient unless scope is explicitly broad."
+    },
+    {
+      "id": "S3",
+      "group": "schema-gravity",
+      "prompt": "Summarize these two short notes.",
+      "expectedOrchestrations": ["none"],
+      "requiresSynthesis": false,
+      "disallowed": ["single", "parallel", "parallel-then-synthesis", "chain"],
+      "notes": "Trivial synthesis should stay in the main agent."
+    },
+    {
+      "id": "S4",
+      "group": "schema-gravity",
+      "prompt": "Perform dependent steps A then B.",
+      "expectedOrchestrations": ["chain"],
+      "requiresSynthesis": false,
+      "disallowed": ["parallel", "parallel-then-synthesis"],
+      "notes": "Dependent steps should prefer chain over parallel-reduce."
+    }
+  ]
+}
