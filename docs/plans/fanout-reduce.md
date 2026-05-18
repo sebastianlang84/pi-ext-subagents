@@ -38,7 +38,7 @@ The hard part is that the main agent must first recognize that this workflow is 
 So the design target is routing reliability:
 
 - What agent-facing context makes the main agent choose this pattern without being explicitly told each time?
-- Is compact tool metadata enough, or does it require a skill such as `subagent-workflow`?
+- Is compact tool metadata enough, or does it require a skill such as `pi-subagents`?
 - Would a first-class `reduce` field make the affordance visible enough to change behavior?
 - Can we measure this with prompt-routing fixtures before adding API surface?
 
@@ -46,7 +46,7 @@ A built-in reducer only matters if it improves this recognition/reliability prob
 
 ## Research axis: tool affordance vs skill
 
-A key hypothesis is that better `subagent` tool metadata may make part of the `subagent-workflow` skill unnecessary.
+A key hypothesis is that better `subagent` tool metadata may make part of the `pi-subagents` skill unnecessary.
 
 Ideal outcome:
 
@@ -166,8 +166,8 @@ Exact typing may differ, but the API should make fanout and reducer phases separ
 ## Research questions
 
 1. Do agents reliably choose the manual two-call pattern when the user asks for multi-perspective research plus synthesis but does not explicitly name fanout-then-reduce?
-2. Which context surface causes the choice: tool metadata, `subagent-workflow`, a new skill, or a first-class `reduce` schema?
-3. Can improved tool metadata replace or shrink the `subagent-workflow` skill for common routing decisions?
+2. Which context surface causes the choice: tool metadata, `pi-subagents`, a new skill, or a first-class `reduce` schema?
+3. Can improved tool metadata replace or shrink the `pi-subagents` skill for common routing decisions?
 4. Does better tool affordance cause overdelegation on tiny or linear tasks?
 5. If a `reduce` schema is visible, how often do agents choose it incorrectly because of schema gravity?
 6. Is the value mostly interactive convenience, or does headless/API use need one atomic tool call?

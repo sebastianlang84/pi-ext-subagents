@@ -8,8 +8,8 @@ Measure whether agents choose appropriate `subagent` orchestration from availabl
 
 The benchmark should answer:
 
-- Can current tool metadata trigger good common routing without loading `subagent-workflow`?
-- Does `subagent-workflow` materially improve routing decisions?
+- Can current tool metadata trigger good common routing without loading `pi-subagents`?
+- Does `pi-subagents` materially improve routing decisions?
 - Can minimal improved tool metadata shrink or replace the skill for common cases?
 - Would a visible `reduce` schema improve recognition or create schema-gravity false positives?
 
@@ -25,7 +25,7 @@ The benchmark should answer:
 Run the same fixture set under these context conditions:
 
 1. **Tool metadata only** — current `subagent` tool description, schema, snippet, and guidelines.
-2. **Tool metadata + `subagent-workflow`** — same task, with the skill loaded before decision.
+2. **Tool metadata + `pi-subagents`** — same task, with the skill loaded before decision.
 3. **Improved tool metadata** — minimal wording that mentions synthesis after independent parallel lanes, still passing `npm run check:token-injection`.
 4. **Schema affordance prototype** — hypothetical visible `reduce` field or schema description, only for routing measurement; not an implementation commitment.
 
@@ -109,17 +109,17 @@ Suggested result labels:
 
 ## Pass thresholds
 
-Before shrinking `subagent-workflow` or adding built-in `reduce`, require:
+Before shrinking `pi-subagents` or adding built-in `reduce`, require:
 
 - Positive fixtures: at least 85% `pass` or `acceptable` with explicit reducer/synthesis recognition where expected.
 - Negative fixtures: at most 15% overdelegation or incorrect reducer use.
-- Improved tool metadata: within 5 percentage points of `subagent-workflow` on positive fixtures to justify shrinking the skill.
+- Improved tool metadata: within 5 percentage points of `pi-subagents` on positive fixtures to justify shrinking the skill.
 - Schema affordance: false positives no more than 5 percentage points above metadata-only routing.
 - Token budget: improved metadata or schema changes must include an `npm run check:token-injection` report and justify any prompt-facing token growth; use explicit `--max-*-tokens` thresholds only when the benchmark run defines them.
 
 If thresholds fail:
 
-- Keep or strengthen `subagent-workflow` when the skill outperforms metadata.
+- Keep or strengthen `pi-subagents` when the skill outperforms metadata.
 - Avoid adding `reduce` schema if schema-gravity false positives exceed the threshold.
 - Prefer benchmark-driven metadata edits before API changes.
 

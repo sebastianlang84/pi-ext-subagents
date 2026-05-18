@@ -15,9 +15,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Add tests for timeout/error result semantics before implementation.
 
 3. [ ] Add a prompt-injection effectiveness test for subagent routing.
-   - Goal: measure whether compact `subagent` tool metadata teaches agents good delegation choices without loading the global `subagent-workflow` skill.
+   - Goal: measure whether compact `subagent` tool metadata teaches agents good delegation choices without loading the global `pi-subagents` skill.
    - Suggested fixture set: tiny task should not delegate; broad codebase question should use scout/reviewer; risky change should request review/oracle; independent checks should use parallel; dependent handoff should use chain; project-agent prompt should preserve trust caution.
-   - Compare decisions with tool metadata only vs. with the `subagent-workflow` skill loaded before deciding whether the skill can be retired.
+   - Compare decisions with tool metadata only vs. with the `pi-subagents` skill loaded before deciding whether the skill should stay as complementary deep orchestration policy or be further shrunk.
 
 ## P3 (Maintenance / release)
 
