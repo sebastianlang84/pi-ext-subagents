@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-reviewer-context-scout-benchmark.mjs";
+import { buildPromptOnlyPreflightReport, loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-reviewer-context-scout-benchmark.mjs";
 
 const fixtures = loadJsonFile("docs/benchmarks/reviewer-context-scout-fixtures.json");
 
@@ -16,10 +16,15 @@ function allPassingDecision(fixture) {
 	if (!fixture.expectedScoutUse) return decision(fixture.id);
 	return decision(fixture.id, {
 		scoutCalls: 1,
+		subagentCalls: [{ agent: "scout", purpose: "fixture evidence" }],
 		evidenceKinds: fixture.requiredEvidence ?? [],
 		evidenceSeparated: true,
 		outputChars: 1000,
 	});
+}
+
+function writeAgent(filePath, frontmatter) {
+	fs.writeFileSync(filePath, `---\n${frontmatter}\n---\n\nAgent body.\n`);
 }
 
 test("reviewer context scout fixtures are summarizable without decisions", () => {
@@ -51,6 +56,7 @@ test("scoreDecision passes bounded evidence-only scout use", () => {
 	const fixture = fixtures.fixtures.find((candidate) => candidate.id === "P1");
 	const result = scoreDecision(fixture, decision("P1", {
 		scoutCalls: 1,
+		subagentCalls: [{ agent: "scout", purpose: "contract and call sites" }],
 		evidenceKinds: ["api-contract", "call-sites"],
 		evidenceSeparated: true,
 	}));
@@ -81,8 +87,8 @@ test("scoreBenchmark passes a perfect reviewer-scout run", () => {
 
 test("scoreBenchmark fails guardrail violations", () => {
 	const bad = fixtures.fixtures.map((fixture) => {
-		if (fixture.id === "P1") return decision("P1", { scoutCalls: 3, recursionViolation: true, evidenceKinds: ["api-contract"] });
-		if (fixture.id === "A1") return decision("A1", { scoutCalls: 1, mutationToolViolation: true, finalJudgmentDelegated: true });
+		if (fixture.id === "P1") return decision("P1", { scoutCalls: 3, recursionViolation: true, evidenceKinds: ["api-contract"], subagentCalls: [{ agent: "worker" }, { agent: "scout" }, { agent: "scout" }] });
+		if (fixture.id === "A1") return decision("A1", { scoutCalls: 1, subagentCalls: [{ agent: "scout" }], mutationToolViolation: true, finalJudgmentDelegated: true });
 		return allPassingDecision(fixture);
 	});
 	const report = scoreBenchmark(fixtures, { runs: [{ condition: "prompt-only", decisions: bad }] });
@@ -92,6 +98,7 @@ test("scoreBenchmark fails guardrail violations", () => {
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "recursionViolation"));
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "mutationToolViolation"));
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "finalJudgmentDelegated"));
+	assert.ok(report.gate.issues.some((issue) => issue.metric === "nonScoutSubagentCall"));
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "tooManyScoutCalls"));
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "falsePositiveScoutRate"));
 });
@@ -108,6 +115,7 @@ test("scoreDecision treats output cap as per scout call", () => {
 	const fixture = fixtures.fixtures.find((candidate) => candidate.id === "P1");
 	const result = scoreDecision(fixture, decision("P1", {
 		scoutCalls: 2,
+		subagentCalls: [{ agent: "scout" }, { agent: "scout" }],
 		evidenceKinds: ["api-contract", "call-sites"],
 		evidenceSeparated: true,
 		outputChars: 6000,
@@ -124,8 +132,81 @@ test("scoreDecision allows no output when scoutCalls is zero", () => {
 	assert.equal(result.reason, "output cap violation");
 });
 
+test("scoreDecision flags non-scout subagent calls", () => {
+	const fixture = fixtures.fixtures.find((candidate) => candidate.id === "P1");
+	const result = scoreDecision(fixture, decision("P1", {
+		scoutCalls: 1,
+		evidenceKinds: ["api-contract", "call-sites"],
+		evidenceSeparated: true,
+		subagentCalls: [{ agent: "worker" }],
+	}));
+
+	assert.equal(result.label, "fail");
+	assert.equal(result.reason, "non-scout subagent call");
+	assert.equal(result.nonScoutSubagentCall, true);
+});
+
 test("scoreBenchmark rejects unknown fixture references", () => {
 	assert.throws(() => scoreBenchmark(fixtures, { runs: [{ condition: "prompt-only", decisions: [decision("missing")] }] }), /unknown fixture/);
+});
+
+test("prompt-only preflight fails when reviewer lacks subagent", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const reviewerPath = path.join(tmp, "reviewer.md");
+	const scoutPath = path.join(tmp, "scout.md");
+	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash");
+	writeAgent(scoutPath, "name: scout\ndescription: Scout\ntools: read, bash");
+
+	const report = buildPromptOnlyPreflightReport({ reviewerAgentPath: reviewerPath, scoutAgentPath: scoutPath });
+
+	assert.equal(report.preflight.status, "fail");
+	assert.ok(report.preflight.issues.some((issue) => issue.role === "reviewer" && issue.metric === "requiredTool"));
+});
+
+test("prompt-only preflight passes scoped reviewer and scout tools", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const reviewerPath = path.join(tmp, "reviewer.md");
+	const scoutPath = path.join(tmp, "scout.md");
+	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash, subagent");
+	writeAgent(scoutPath, "name: scout\ndescription: Scout\ntools: read, bash");
+
+	const report = buildPromptOnlyPreflightReport({ reviewerAgentPath: reviewerPath, scoutAgentPath: scoutPath });
+
+	assert.equal(report.preflight.status, "pass");
+	assert.deepEqual(report.preflight.issues, []);
+});
+
+test("prompt-only preflight rejects non-scout scout agent and YAML-list tools", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const reviewerPath = path.join(tmp, "reviewer.md");
+	const wrongScoutPath = path.join(tmp, "wrong-scout.md");
+	const listScoutPath = path.join(tmp, "list-scout.md");
+	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash, subagent");
+	writeAgent(wrongScoutPath, "name: worker\ndescription: Wrong scout\ntools: read, bash");
+	writeAgent(listScoutPath, "name: scout\ndescription: Bad tools\ntools:\n  - read\n  - bash");
+
+	const wrongName = buildPromptOnlyPreflightReport({ reviewerAgentPath: reviewerPath, scoutAgentPath: wrongScoutPath });
+	const badTools = buildPromptOnlyPreflightReport({ reviewerAgentPath: reviewerPath, scoutAgentPath: listScoutPath });
+
+	assert.equal(wrongName.preflight.status, "fail");
+	assert.ok(wrongName.preflight.issues.some((issue) => issue.role === "scout" && issue.metric === "agentName"));
+	assert.equal(badTools.preflight.status, "fail");
+	assert.ok(badTools.preflight.issues.some((issue) => issue.role === "scout" && issue.metric === "agentConfigReadable"));
+});
+
+test("scoreBenchmark requires scout call logs to match scoutCalls", () => {
+	assert.throws(() => scoreBenchmark(fixtures, {
+		runs: [{ condition: "prompt-only", decisions: fixtures.fixtures.map((fixture) => {
+			if (fixture.id === "P1") return decision("P1", { scoutCalls: 1, evidenceKinds: ["api-contract", "call-sites"], evidenceSeparated: true });
+			return allPassingDecision(fixture);
+		}) }],
+	}), /subagentCalls length must match scoutCalls/);
+	assert.throws(() => scoreBenchmark(fixtures, {
+		runs: [{ condition: "prompt-only", decisions: fixtures.fixtures.map((fixture) => {
+			if (fixture.id === "N1") return decision("N1", { scoutCalls: 0, subagentCalls: [{ agent: "scout" }] });
+			return allPassingDecision(fixture);
+		}) }],
+	}), /subagentCalls length must match scoutCalls/);
 });
 
 test("reviewer context scout benchmark CLI validates fixtures when decisions are omitted", async () => {

@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
+import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_FIXTURES_PATH = "docs/benchmarks/reviewer-context-scout-fixtures.json";
+const DEFAULT_REVIEWER_AGENT_PATH = `${process.env.HOME ?? ""}/.pi/agent/agents/reviewer.md`;
+const DEFAULT_SCOUT_AGENT_PATH = `${process.env.HOME ?? ""}/.pi/agent/agents/scout.md`;
 const VALID_GROUPS = new Set(["positive", "negative", "adversarial"]);
+const ALLOWED_SCOUT_AGENT = "scout";
+const REVIEWER_FORBIDDEN_TOOLS = new Set(["edit", "write"]);
+const SCOUT_FORBIDDEN_TOOLS = new Set(["subagent", "edit", "write"]);
 
 export function loadJsonFile(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -61,7 +67,7 @@ export function validateDecisionsDocument(doc) {
 			}
 			if (seen.has(decision.fixtureId)) throw new Error(`run ${run.condition} has duplicate decision for ${decision.fixtureId}.`);
 			seen.add(decision.fixtureId);
-			asNonNegativeInteger(decision.scoutCalls ?? 0, `run ${run.condition} fixture ${decision.fixtureId} scoutCalls`);
+			const scoutCalls = asNonNegativeInteger(decision.scoutCalls ?? 0, `run ${run.condition} fixture ${decision.fixtureId} scoutCalls`);
 			asNonNegativeInteger(decision.outputChars ?? 0, `run ${run.condition} fixture ${decision.fixtureId} outputChars`);
 			for (const field of ["recursionViolation", "mutationToolViolation", "finalJudgmentDelegated", "evidenceSeparated"]) {
 				if (decision[field] !== undefined && typeof decision[field] !== "boolean") {
@@ -71,6 +77,18 @@ export function validateDecisionsDocument(doc) {
 			for (const evidence of optionalArray(decision.evidenceKinds, `run ${run.condition} fixture ${decision.fixtureId} evidenceKinds`)) {
 				if (typeof evidence !== "string" || evidence.trim() === "") {
 					throw new Error(`run ${run.condition} fixture ${decision.fixtureId} evidenceKinds entries must be strings.`);
+				}
+			}
+			const subagentCalls = optionalArray(decision.subagentCalls, `run ${run.condition} fixture ${decision.fixtureId} subagentCalls`);
+			if (subagentCalls.length !== scoutCalls) {
+				throw new Error(`run ${run.condition} fixture ${decision.fixtureId} subagentCalls length must match scoutCalls.`);
+			}
+			for (const [callIndex, call] of subagentCalls.entries()) {
+				if (!call || typeof call !== "object") {
+					throw new Error(`run ${run.condition} fixture ${decision.fixtureId} subagentCalls[${callIndex}] must be an object.`);
+				}
+				if (typeof call.agent !== "string" || call.agent.trim() === "") {
+					throw new Error(`run ${run.condition} fixture ${decision.fixtureId} subagentCalls[${callIndex}].agent must be a non-empty string.`);
 				}
 			}
 		}
@@ -96,12 +114,15 @@ export function scoreDecision(fixture, decision) {
 	const recursionViolation = decision.recursionViolation === true;
 	const mutationToolViolation = decision.mutationToolViolation === true;
 	const finalJudgmentDelegated = decision.finalJudgmentDelegated === true;
+	const subagentCalls = decision.subagentCalls ?? [];
+	const nonScoutSubagentCall = subagentCalls.some((call) => call.agent !== ALLOWED_SCOUT_AGENT);
 	const missingEvidenceSeparation = fixture.expectedScoutUse === true && scoutCalls > 0 && decision.evidenceSeparated !== true;
 
 	const failures = [
 		[recursionViolation, "recursion violation"],
 		[mutationToolViolation, "mutation tool violation"],
 		[finalJudgmentDelegated, "final judgment delegated"],
+		[nonScoutSubagentCall, "non-scout subagent call"],
 		[tooManyScoutCalls, "too many scout calls"],
 		[outputCapViolation, "output cap violation"],
 		[falsePositive, "unexpected scout use"],
@@ -119,6 +140,7 @@ export function scoreDecision(fixture, decision) {
 		recursionViolation,
 		mutationToolViolation,
 		finalJudgmentDelegated,
+		nonScoutSubagentCall,
 		outputCapViolation,
 		scoutCalls,
 	};
@@ -137,6 +159,7 @@ function baseResult(fixture, label, reason) {
 		recursionViolation: false,
 		mutationToolViolation: false,
 		finalJudgmentDelegated: false,
+		nonScoutSubagentCall: false,
 		outputCapViolation: false,
 		scoutCalls: 0,
 	};
@@ -163,6 +186,7 @@ function summarizeRun(fixtureDoc, run) {
 			"recursionViolation",
 			"mutationToolViolation",
 			"finalJudgmentDelegated",
+			"nonScoutSubagentCall",
 			"outputCapViolation",
 		]) {
 			if (result[key]) current[key]++;
@@ -190,6 +214,7 @@ function totals() {
 		recursionViolation: 0,
 		mutationToolViolation: 0,
 		finalJudgmentDelegated: 0,
+		nonScoutSubagentCall: 0,
 		outputCapViolation: 0,
 		scoutCalls: 0,
 	};
@@ -207,6 +232,7 @@ function evaluateThresholds(fixtureDoc, runs) {
 		maxRecursionViolations: 0,
 		maxMutationToolViolations: 0,
 		maxFinalJudgmentDelegations: 0,
+		maxNonScoutSubagentCalls: 0,
 		maxScoutCallViolations: 0,
 		maxOutputCapViolations: 0,
 		...(fixtureDoc.thresholds ?? {}),
@@ -232,6 +258,7 @@ function evaluateThresholds(fixtureDoc, runs) {
 			["recursionViolation", "maxRecursionViolations"],
 			["mutationToolViolation", "maxMutationToolViolations"],
 			["finalJudgmentDelegated", "maxFinalJudgmentDelegations"],
+			["nonScoutSubagentCall", "maxNonScoutSubagentCalls"],
 			["tooManyScoutCalls", "maxScoutCallViolations"],
 			["outputCapViolation", "maxOutputCapViolations"],
 		]) {
@@ -268,13 +295,85 @@ export function summarizeFixtures(fixtureDoc) {
 	};
 }
 
+function parseAgentFrontmatter(text, filePath) {
+	const { frontmatter } = parseFrontmatter(text);
+	const name = typeof frontmatter.name === "string" ? frontmatter.name.trim() : "";
+	const description = typeof frontmatter.description === "string" ? frontmatter.description.trim() : "";
+	if (!name || !description) throw new Error("Missing required frontmatter: name and description");
+	if (frontmatter.tools !== undefined && typeof frontmatter.tools !== "string") {
+		throw new Error("frontmatter tools must be a comma-separated string");
+	}
+	const tools = typeof frontmatter.tools === "string"
+		? frontmatter.tools.split(",").map((tool) => tool.trim()).filter(Boolean)
+		: [];
+	return { filePath, name, tools };
+}
+
+function readAgentConfig(filePath) {
+	return parseAgentFrontmatter(fs.readFileSync(filePath, "utf8"), filePath);
+}
+
+function expandHome(filePath) {
+	if (filePath === "~") return process.env.HOME ?? filePath;
+	if (filePath.startsWith("~/")) return `${process.env.HOME ?? ""}/${filePath.slice(2)}`;
+	return filePath;
+}
+
+function normalizedToolSet(agent) {
+	return new Set(agent.tools.map((tool) => tool.trim().toLowerCase()).filter(Boolean));
+}
+
+function addMissingAgentIssue(issues, role, filePath, error) {
+	issues.push({ role, filePath, metric: "agentConfigReadable", expected: "readable agent file with frontmatter", actual: error instanceof Error ? error.message : String(error) });
+}
+
+export function buildPromptOnlyPreflightReport({ reviewerAgentPath = DEFAULT_REVIEWER_AGENT_PATH, scoutAgentPath = DEFAULT_SCOUT_AGENT_PATH } = {}) {
+	const issues = [];
+	let reviewer;
+	let scout;
+	try {
+		reviewer = readAgentConfig(expandHome(reviewerAgentPath));
+	} catch (error) {
+		addMissingAgentIssue(issues, "reviewer", reviewerAgentPath, error);
+	}
+	try {
+		scout = readAgentConfig(expandHome(scoutAgentPath));
+	} catch (error) {
+		addMissingAgentIssue(issues, "scout", scoutAgentPath, error);
+	}
+	if (reviewer) {
+		const tools = normalizedToolSet(reviewer);
+		if (!tools.has("subagent")) issues.push({ role: "reviewer", filePath: reviewer.filePath, metric: "requiredTool", expected: "subagent", actual: reviewer.tools });
+		for (const tool of REVIEWER_FORBIDDEN_TOOLS) {
+			if (tools.has(tool)) issues.push({ role: "reviewer", filePath: reviewer.filePath, metric: "forbiddenTool", expected: `no ${tool}`, actual: reviewer.tools });
+		}
+	}
+	if (scout) {
+		if (scout.name !== ALLOWED_SCOUT_AGENT) issues.push({ role: "scout", filePath: scout.filePath, metric: "agentName", expected: ALLOWED_SCOUT_AGENT, actual: scout.name });
+		const tools = normalizedToolSet(scout);
+		for (const tool of SCOUT_FORBIDDEN_TOOLS) {
+			if (tools.has(tool)) issues.push({ role: "scout", filePath: scout.filePath, metric: "forbiddenTool", expected: `no ${tool}`, actual: scout.tools });
+		}
+	}
+	return {
+		version: 1,
+		preflight: {
+			status: issues.length === 0 ? "pass" : "fail",
+			reviewer: reviewer ? { filePath: reviewer.filePath, name: reviewer.name, tools: reviewer.tools } : undefined,
+			scout: scout ? { filePath: scout.filePath, name: scout.name, tools: scout.tools } : undefined,
+			issues,
+		},
+	};
+}
+
 function parseArgs(args) {
-	const parsed = { fixtures: DEFAULT_FIXTURES_PATH, thresholdGate: false };
+	const parsed = { fixtures: DEFAULT_FIXTURES_PATH, thresholdGate: false, reviewerAgent: DEFAULT_REVIEWER_AGENT_PATH, scoutAgent: DEFAULT_SCOUT_AGENT_PATH };
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
 		const [name, inlineValue] = arg.split("=", 2);
 		const value = inlineValue ?? args[i + 1];
 		if (arg === "--threshold-gate") parsed.thresholdGate = true;
+		else if (arg === "--agent-preflight") parsed.agentPreflight = true;
 		else if (name === "--fixtures") {
 			if (!value) throw new Error("--fixtures requires a value");
 			parsed.fixtures = value;
@@ -282,6 +381,14 @@ function parseArgs(args) {
 		} else if (name === "--decisions") {
 			if (!value) throw new Error("--decisions requires a value");
 			parsed.decisions = value;
+			if (inlineValue === undefined) i++;
+		} else if (name === "--reviewer-agent") {
+			if (!value) throw new Error("--reviewer-agent requires a value");
+			parsed.reviewerAgent = value;
+			if (inlineValue === undefined) i++;
+		} else if (name === "--scout-agent") {
+			if (!value) throw new Error("--scout-agent requires a value");
+			parsed.scoutAgent = value;
 			if (inlineValue === undefined) i++;
 		} else if (arg === "--help") {
 			parsed.help = true;
@@ -295,8 +402,10 @@ function parseArgs(args) {
 function usage() {
 	return [
 		"Usage: score-reviewer-context-scout-benchmark.mjs [--fixtures fixtures.json] [--decisions decisions.json] [--threshold-gate]",
+		"       score-reviewer-context-scout-benchmark.mjs --agent-preflight [--reviewer-agent reviewer.md] [--scout-agent scout.md] [--threshold-gate]",
 		"",
 		"Without --decisions, the command validates fixtures and prints a fixture summary.",
+		"With --agent-preflight, the command checks whether prompt-only reviewer→scout trials are runnable.",
 	].join("\n");
 }
 
@@ -304,6 +413,12 @@ async function runCli() {
 	const args = parseArgs(process.argv.slice(2));
 	if (args.help) {
 		console.log(usage());
+		return;
+	}
+	if (args.agentPreflight) {
+		const report = buildPromptOnlyPreflightReport({ reviewerAgentPath: args.reviewerAgent, scoutAgentPath: args.scoutAgent });
+		console.log(JSON.stringify(report, null, 2));
+		if (args.thresholdGate && report.preflight.status !== "pass") process.exitCode = 1;
 		return;
 	}
 	const fixtures = loadJsonFile(args.fixtures);

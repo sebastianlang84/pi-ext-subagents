@@ -13,7 +13,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Canonical research plan: `docs/plans/reviewer-context-scout.md`.
    - Goal: let reviewer subagents ask bounded, evidence-only context questions without recursive agent fanout.
    - Benchmark scaffold: `docs/benchmarks/reviewer-context-scout-fixtures.json`, `scripts/score-reviewer-context-scout-benchmark.mjs`, `npm run benchmark:reviewer-context-scout`.
-   - Next: collect prompt-only reviewer decisions for the fixtures and score them; then add seeded file/line evidence expectations before considering a new prompt-facing tool.
+   - Current gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
+   - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate.
+   - Next: add seeded file/line evidence expectations so scout quality cannot pass by evidence labels alone.
 
 3. [ ] Add optional per-task runtime controls.
    - Candidate options: `timeoutMs`, `maxOutputChars`, `outputMode: "summary" | "full"`.

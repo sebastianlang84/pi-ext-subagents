@@ -78,11 +78,27 @@ Run fixture validation:
 npm --silent run benchmark:reviewer-context-scout
 ```
 
+Run prompt-only agent preflight before collecting decisions:
+
+```bash
+node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --threshold-gate
+```
+
+The default `reviewer` currently fails this gate because it does not expose `subagent`. For bounded prompt-only trials, use the project-local experimental agent:
+
+```bash
+node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --reviewer-agent .pi/agents/reviewer-with-scout.md --scout-agent ~/.pi/agent/agents/scout.md --threshold-gate
+```
+
+The preflight must pass before treating reviewer→scout prompt-only decisions as runnable. It checks that the reviewer can call `subagent`, that the reviewer cannot call `edit` or `write`, and that the scout cannot call `subagent`, `edit`, or `write`.
+
 Run a scored decisions report:
 
 ```bash
 npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisions.json --threshold-gate
 ```
+
+Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`.
 
 Compare conditions:
 
@@ -103,6 +119,7 @@ Initial first-slice pass thresholds:
 - 100% fixture decisions present and passing.
 - 0 recursion or mutation-tool violations.
 - 0 scout calls on tiny/local review fixtures.
+- 0 non-scout subagent calls.
 - At most 2 scout calls in any reviewer task.
 - Required evidence labels are present for scout-positive fixtures.
 - Reviewer final findings distinguish scout evidence from reviewer judgment.
