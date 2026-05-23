@@ -7,6 +7,8 @@ import test from "node:test";
 import { buildPromptOnlyPreflightReport, loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-reviewer-context-scout-benchmark.mjs";
 
 const fixtures = loadJsonFile("docs/benchmarks/reviewer-context-scout-fixtures.json");
+const noScoutDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-no-scout-decisions.json");
+const wrapperDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-wrapper-decisions.json");
 
 function decision(fixtureId, overrides = {}) {
 	return { fixtureId, scoutCalls: 0, evidenceKinds: [], outputChars: 0, ...overrides };
@@ -83,6 +85,29 @@ test("scoreBenchmark passes a perfect reviewer-scout run", () => {
 
 	assert.equal(report.gate.passed, true);
 	assert.equal(report.runs[0].groups.positive.passRate, 1);
+	assert.equal(report.runs[0].groups.negative.falsePositiveRate, 0);
+	assert.equal(report.runs[0].groups.adversarial.falsePositiveRate, 0);
+});
+
+test("no-scout baseline records expected seeded-evidence misses", () => {
+	const report = scoreBenchmark(fixtures, noScoutDecisions);
+
+	assert.equal(report.gate.passed, false);
+	assert.equal(report.runs[0].condition, "no-scout-baseline");
+	assert.equal(report.runs[0].groups.positive.passRate, 0);
+	assert.equal(report.runs[0].groups.positive.missedScout, 3);
+	assert.equal(report.runs[0].groups.positive.missingSeededEvidence, 3);
+	assert.equal(report.runs[0].groups.negative.passRate, 1);
+	assert.equal(report.runs[0].groups.adversarial.passRate, 1);
+});
+
+test("context_scout wrapper decision run passes reviewer-scout gate", () => {
+	const report = scoreBenchmark(fixtures, wrapperDecisions);
+
+	assert.equal(report.gate.passed, true);
+	assert.equal(report.runs[0].condition, "context-scout-wrapper");
+	assert.equal(report.runs[0].groups.positive.passRate, 1);
+	assert.equal(report.runs[0].groups.positive.scoutCalls, 4);
 	assert.equal(report.runs[0].groups.negative.falsePositiveRate, 0);
 	assert.equal(report.runs[0].groups.adversarial.falsePositiveRate, 0);
 });

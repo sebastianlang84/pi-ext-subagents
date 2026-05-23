@@ -18,7 +18,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Prompt-only gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
    - Wrapper prototype: `context_scout` enforces fixed user-scope `scout`, max 2 calls per reviewer task, read-only scout tool allowlist, and output caps; `.pi/agents/reviewer-with-context-scout.md` opts into it.
    - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate, including seeded `evidenceRefs[]` file/line checks.
-   - Next: collect a wrapper decision run plus no-scout baseline / seeded review-miss cases to measure whether scout evidence catches issues that plain review misses.
+   - No-scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses 3/3 seeded positive evidence checks while passing tiny/adversarial cases.
+   - Wrapper decision run: `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json` passes threshold gate using `.pi/agents/reviewer-with-context-scout.md` / `context_scout`.
+   - Next: decide whether to rename `context_scout` to `ask_scout` and whether to add a cleaner decision-log schema for wrapper calls instead of overloading `subagentCalls`.
    - Follow-ups to discuss:
      - Budget enforcement is post-run; over-budget scout work is returned as an error after completion rather than being interrupted live.
      - Tool/UX name `context_scout` is technical; consider a clearer reviewer-facing name such as `ask_scout`.

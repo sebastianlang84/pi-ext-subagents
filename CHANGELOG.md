@@ -10,7 +10,7 @@ SemVer impact: minor.
 - Add an offline subagent-routing benchmark scorer, fixture set, and npm script for evaluating fanout-then-synthesis decisions without model/provider wiring.
 - Add prompt-injection resilience fixtures to the subagent-routing benchmark so broad tasks resist anti-delegation text and tiny tasks resist overdelegation text.
 - Record a prompt-only subagent-routing decision run comparing metadata-only, metadata-skill, improved-metadata, and schema-affordance conditions.
-- Add reviewer-context-scout research docs plus an offline benchmark scorer, fixtures, tests, npm script, agent preflight, experimental reviewer-with-scout agents, prompt-only decision log, non-scout-call guardrail, seeded file/line evidence scoring, and the bounded `context_scout` wrapper tool for fixed-scout reviewer evidence lookups.
+- Add reviewer-context-scout research docs plus an offline benchmark scorer, fixtures, tests, npm script, agent preflight, experimental reviewer-with-scout agents, prompt-only/no-scout/wrapper decision logs, non-scout-call guardrail, seeded file/line evidence scoring, and the bounded `context_scout` wrapper tool for fixed-scout reviewer evidence lookups.
 - Add optional per-task runtime controls for `subagent`: `timeoutMs`, `maxOutputChars`, and `outputMode` for single, parallel, and chain steps.
 
 ## 1.1.2 - 2026-05-16

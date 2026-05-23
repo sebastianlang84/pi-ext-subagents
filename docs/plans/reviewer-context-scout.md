@@ -100,13 +100,15 @@ npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisio
 
 Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`; they include seeded `evidenceRefs[]` with file/line ranges.
 
-Wrapper trials should use `.pi/agents/reviewer-with-context-scout.md`, which exposes `context_scout` instead of generic `subagent`.
+The no-scout baseline is logged in `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json`; it intentionally fails positive fixtures with 3/3 seeded-evidence misses while still passing tiny/adversarial fixtures.
+
+Wrapper decisions are logged in `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json`; they use `.pi/agents/reviewer-with-context-scout.md`, which exposes `context_scout` instead of generic `subagent`, and pass the current threshold gate.
 
 Compare conditions:
 
-1. no scout available.
-2. prompt-only scout via existing `subagent`.
-3. wrapper `context_scout` via `.pi/agents/reviewer-with-context-scout.md`.
+1. no scout available: `npm --silent run benchmark:reviewer-context-scout -- --decisions docs/benchmarks/reviewer-context-scout-no-scout-decisions.json`.
+2. prompt-only scout via existing `subagent`: `npm --silent run benchmark:reviewer-context-scout -- --decisions docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json --threshold-gate`.
+3. wrapper `context_scout` via `.pi/agents/reviewer-with-context-scout.md`: `npm --silent run benchmark:reviewer-context-scout -- --decisions docs/benchmarks/reviewer-context-scout-wrapper-decisions.json --threshold-gate`.
 
 Fixture cases:
 
