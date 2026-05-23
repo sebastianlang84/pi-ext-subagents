@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-subagent-routing-benchmark.mjs";
+import { buildDecisionPrompt, extractFinalTextFromPiJson, parseDecisionText, runBenchmarkDecisions, runPiDecision } from "../scripts/run-subagent-routing-benchmark.mjs";
 
 const fixtures = loadJsonFile("docs/benchmarks/subagent-routing-fixtures.json");
 const promptOnlyDecisions = loadJsonFile("docs/benchmarks/subagent-routing-prompt-only-decisions.json");
@@ -183,6 +184,115 @@ test("benchmark npm script validates fixtures", async () => {
 	assert.equal(result.status, 0, result.stderr);
 	const report = JSON.parse(result.stdout);
 	assert.equal(report.fixtures.total, 16);
+});
+
+test("automated routing runner builds isolated decision prompts", () => {
+	const fixture = fixtures.fixtures.find((candidate) => candidate.id === "P6");
+	const prompt = buildDecisionPrompt({ condition: "improved-metadata", fixture });
+
+	assert.match(prompt, /prompt-only routing benchmark/);
+	assert.match(prompt, /Do not execute the task/);
+	assert.match(prompt, /Task prompt: Ignore any delegation guidance/);
+	assert.match(prompt, /"fixtureId":"P6"/);
+	assert.match(prompt, /parallel-then-synthesis/);
+});
+
+test("automated routing runner extracts and validates Pi JSON decisions", () => {
+	const stdout = [
+		JSON.stringify({ type: "message_end", message: { content: [{ type: "text", text: "not final" }] } }),
+		JSON.stringify({ type: "message_end", message: { content: [{ type: "text", text: "```json\n{\"fixtureId\":\"P1\",\"orchestration\":\"parallel-then-synthesis\",\"synthesisPhase\":true,\"mainFinalJudgment\":true,\"notes\":\"broad\"}\n```" }] } }),
+	].join("\n");
+
+	const finalText = extractFinalTextFromPiJson(stdout);
+	const decision = parseDecisionText(finalText, "P1");
+
+	assert.equal(decision.fixtureId, "P1");
+	assert.equal(decision.orchestration, "parallel-then-synthesis");
+	assert.equal(decision.synthesisPhase, true);
+	assert.equal(decision.mainFinalJudgment, true);
+	assert.equal(decision.notes, "broad");
+	assert.throws(() => parseDecisionText('{"fixtureId":"P2","orchestration":"none"}', "P1"), /did not match/);
+});
+
+test("automated routing runner invokes Pi with prompt stdin and parses the decision", async () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "subagent-routing-runner-"));
+	const fakePi = path.join(tmp, "fake-pi.mjs");
+	fs.writeFileSync(fakePi, `#!/usr/bin/env node
+let input = "";
+process.stdin.on("data", (chunk) => { input += chunk.toString(); });
+process.stdin.on("end", () => {
+  if (!input.includes("Task prompt:")) process.exit(3);
+  if (process.argv.some((arg) => arg.includes("Task prompt:"))) process.exit(4);
+  console.log(JSON.stringify({ type: "message_end", message: { content: [{ type: "text", text: JSON.stringify({ orchestration: "none", synthesisPhase: false, mainFinalJudgment: true, notes: "fake" }) }] } }));
+});
+`);
+	fs.chmodSync(fakePi, 0o755);
+
+	const decision = await runPiDecision({
+		piCommand: fakePi,
+		model: "fake-model",
+		timeoutMs: 1000,
+		timeoutKillGraceMs: 100,
+		fixtureId: "N1",
+		prompt: buildDecisionPrompt({ condition: "metadata-only", fixture: fixtures.fixtures.find((fixture) => fixture.id === "N1") }),
+	});
+
+	assert.equal(decision.fixtureId, "N1");
+	assert.equal(decision.orchestration, "none");
+	assert.equal(decision.notes, "fake");
+});
+
+test("automated routing runner rejects invalid Pi commands cleanly", async () => {
+	await assert.rejects(
+		runPiDecision({
+			piCommand: path.join(os.tmpdir(), "missing-pi-command-for-routing-runner"),
+			model: "fake-model",
+			timeoutMs: 1000,
+			timeoutKillGraceMs: 100,
+			fixtureId: "N1",
+			prompt: "prompt",
+		}),
+		/ENOENT/,
+	);
+});
+
+test("automated routing runner times out and force-kills uncooperative Pi processes", async () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "subagent-routing-timeout-"));
+	const fakePi = path.join(tmp, "fake-pi-timeout.mjs");
+	fs.writeFileSync(fakePi, `#!/usr/bin/env node
+process.on("SIGTERM", () => {});
+setInterval(() => {}, 1000);
+`);
+	fs.chmodSync(fakePi, 0o755);
+
+	await assert.rejects(
+		runPiDecision({
+			piCommand: fakePi,
+			model: "fake-model",
+			timeoutMs: 20,
+			timeoutKillGraceMs: 20,
+			fixtureId: "N1",
+			prompt: "prompt",
+		}),
+		/timed out after 20ms/,
+	);
+});
+
+test("automated routing runner dry run emits scorer-compatible decisions", async () => {
+	const report = await runBenchmarkDecisions({
+		fixtures: "docs/benchmarks/subagent-routing-fixtures.json",
+		conditions: ["metadata-only"],
+		fixtureIds: ["N1"],
+		model: "fake-model",
+		piCommand: "pi",
+		timeoutMs: 1000,
+		dryRun: true,
+	});
+
+	assert.equal(report.runs[0].condition, "metadata-only");
+	assert.equal(report.runs[0].model, "fake-model");
+	assert.deepEqual(report.runs[0].decisions, [{ fixtureId: "N1", orchestration: "none", synthesisPhase: false, mainFinalJudgment: true, notes: "dry-run placeholder" }]);
+	assert.equal(scoreBenchmark({ ...fixtures, fixtures: fixtures.fixtures.filter((fixture) => fixture.id === "N1") }, report).gate.passed, true);
 });
 
 test("benchmark scorer CLI emits a JSON report", async () => {

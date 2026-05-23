@@ -129,9 +129,9 @@ If thresholds fail:
 - Avoid adding `reduce` schema if schema-gravity false positives exceed the threshold.
 - Prefer benchmark-driven metadata edits before API changes.
 
-## Offline scorer
+## Offline scorer and automated runner
 
-The initial executable layer is an offline scorer, not a model runner. Without decisions it validates the fixture file and prints a summary:
+The baseline executable layer is an offline scorer. Without decisions it validates the fixture file and prints a summary:
 
 ```bash
 npm --silent run benchmark:subagent-routing
@@ -169,6 +169,20 @@ Valid `orchestration` values are `none`, `single`, `parallel`, `chain`, and `par
 
 The scorer is `scripts/score-subagent-routing-benchmark.mjs`. It prints a JSON report and exits non-zero with `--threshold-gate` when thresholds fail.
 
+For repeatable prompt-only decision collection, use the automated runner. It invokes Pi in JSON print mode, sends benchmark prompts over stdin, disables tools/context/skills for isolation, and writes a decisions file for the offline scorer:
+
+```bash
+npm --silent run benchmark:subagent-routing:run -- \
+  --model openai-codex/gpt-5.5 \
+  --output docs/benchmarks/subagent-routing-auto-decisions.json
+
+npm --silent run benchmark:subagent-routing -- \
+  --decisions docs/benchmarks/subagent-routing-auto-decisions.json \
+  --threshold-gate
+```
+
+Use `--conditions` to run a subset and `--fixture` for smoke tests. Do not commit exploratory automated decision logs unless they are part of the benchmark record being discussed.
+
 ## Current prompt-only run
 
 Decision log: `docs/benchmarks/subagent-routing-prompt-only-decisions.json`.
@@ -188,7 +202,7 @@ Result: threshold gate fails.
 | improved-metadata | 6/6 | 0/6 | 0/4 | none |
 | schema-affordance | 5/6 | 0/6 | 0/4 | positivePassRate |
 
-Interpretation: current compact metadata was enough for this prompt-only run, and the minimal improved-metadata wording also passed. The loaded skill excerpt was more conservative on P2/P4, and the schema-affordance prototype did not create false positives but still missed P4. Do not add a built-in `reduce` schema from this single run; repeat with an automated runner or additional models before API work.
+Interpretation: current compact metadata was enough for this prompt-only run, and the minimal improved-metadata wording also passed. The loaded skill excerpt was more conservative on P2/P4, and the schema-affordance prototype did not create false positives but still missed P4. Do not add a built-in `reduce` schema from this single run; repeat with the automated runner and/or additional models before API work.
 
 The current scorer aggregates:
 

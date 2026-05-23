@@ -9,7 +9,8 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Routing benchmark spec: `docs/plans/subagent-routing-benchmark.md`.
    - Prompt-only decision run: `docs/benchmarks/subagent-routing-prompt-only-decisions.json`.
    - Result: metadata-only and minimal improved metadata passed; `metadata-skill` and schema-affordance missed positive fixtures, with no negative/schema-gravity false positives.
-   - Next: repeat with an automated runner or additional models before changing API surface; do not prototype built-in `reduce` yet.
+   - Automated runner: `npm run benchmark:subagent-routing:run -- --model <model> --output <decisions.json>`.
+   - Next: collect automated runner results and/or additional-model runs before changing API surface; do not prototype built-in `reduce` yet.
 
 2. [ ] Explore reviewer-scoped context scouts.
    - Canonical research plan: `docs/plans/reviewer-context-scout.md`.
