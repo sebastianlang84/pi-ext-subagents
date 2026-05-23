@@ -7,7 +7,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
 1. [ ] Explore optional fanout-then-reduce orchestration.
    - Canonical research plan: `docs/plans/fanout-reduce.md`.
    - Routing benchmark spec: `docs/plans/subagent-routing-benchmark.md`.
-   - Next: run the benchmark to test whether tool metadata alone can trigger parallel-then-reducer behavior without explicit user prompting, while measuring false positives/schema gravity; bounded task output controls now exist, but do not prototype built-in `reduce` before benchmark evidence supports it.
+   - Prompt-only decision run: `docs/benchmarks/subagent-routing-prompt-only-decisions.json`.
+   - Result: metadata-only and minimal improved metadata passed; `metadata-skill` and schema-affordance missed positive fixtures, with no negative/schema-gravity false positives.
+   - Next: repeat with an automated runner or additional models before changing API surface; do not prototype built-in `reduce` yet.
 
 2. [ ] Explore reviewer-scoped context scouts.
    - Canonical research plan: `docs/plans/reviewer-context-scout.md`.

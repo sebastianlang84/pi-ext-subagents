@@ -169,6 +169,27 @@ Valid `orchestration` values are `none`, `single`, `parallel`, `chain`, and `par
 
 The scorer is `scripts/score-subagent-routing-benchmark.mjs`. It prints a JSON report and exits non-zero with `--threshold-gate` when thresholds fail.
 
+## Current prompt-only run
+
+Decision log: `docs/benchmarks/subagent-routing-prompt-only-decisions.json`.
+
+Command:
+
+```bash
+npm --silent run benchmark:subagent-routing -- --decisions docs/benchmarks/subagent-routing-prompt-only-decisions.json --threshold-gate
+```
+
+Result: threshold gate fails.
+
+| Condition | Positive pass | Negative false positives | Schema-gravity false positives | Gate issue |
+| --- | ---: | ---: | ---: | --- |
+| metadata-only | 6/6 | 0/6 | 0/4 | none |
+| metadata-skill | 4/6 | 0/6 | 0/4 | positivePassRate |
+| improved-metadata | 6/6 | 0/6 | 0/4 | none |
+| schema-affordance | 5/6 | 0/6 | 0/4 | positivePassRate |
+
+Interpretation: current compact metadata was enough for this prompt-only run, and the minimal improved-metadata wording also passed. The loaded skill excerpt was more conservative on P2/P4, and the schema-affordance prototype did not create false positives but still missed P4. Do not add a built-in `reduce` schema from this single run; repeat with an automated runner or additional models before API work.
+
 The current scorer aggregates:
 
 - positive pass/acceptable rate

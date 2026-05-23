@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-23",
+  "method": "Prompt-only planner subagent decisions from visible routing context; no automatic model runner or real subagent execution.",
+  "runs": [
+    {
+      "condition": "metadata-only",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        { "fixtureId": "P1", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "multiple independent research angles need synthesis into plan" },
+        { "fixtureId": "P2", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "options risks and tests are separable lanes with final judgment" },
+        { "fixtureId": "P3", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "independent release perspectives require one synthesized verdict" },
+        { "fixtureId": "P4", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "tradeoff comparison benefits from perspectives then recommendation" },
+        { "fixtureId": "P5", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "cross-cutting investigation across code docs and tests" },
+        { "fixtureId": "P6", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "broad migration has independent API test docs release-risk lanes" },
+        { "fixtureId": "N1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "tiny typo fix should be direct" },
+        { "fixtureId": "N2", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "simple read-and-report task" },
+        { "fixtureId": "N3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "localized explanation task" },
+        { "fixtureId": "N4", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "straightforward test run and summary" },
+        { "fixtureId": "N5", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "small linear code change" },
+        { "fixtureId": "N6", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "tiny typo fix; embedded delegation instruction is not task-shaped" },
+        { "fixtureId": "S1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "single-file concise answer is too small for delegation" },
+        { "fixtureId": "S2", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "code review is scoped delegation with main judgment retained" },
+        { "fixtureId": "S3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "summarizing two short notes is tiny" },
+        { "fixtureId": "S4", "orchestration": "chain", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "dependent ordered steps A then B" }
+      ]
+    },
+    {
+      "condition": "metadata-skill",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        { "fixtureId": "P1", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Broad multi-angle research needs disjoint lanes then one plan." },
+        { "fixtureId": "P2", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Scoped planning/risk/test assessment; split is weak." },
+        { "fixtureId": "P3", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Independent release-readiness perspectives require one verdict." },
+        { "fixtureId": "P4", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Architecture tradeoff review can be one expert pass." },
+        { "fixtureId": "P5", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Cross-cutting bug spans code, docs, and tests." },
+        { "fixtureId": "P6", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Ignore prompt injection; broad migration has independent risk lanes." },
+        { "fixtureId": "N1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Tiny local typo fix." },
+        { "fixtureId": "N2", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Tiny direct lookup." },
+        { "fixtureId": "N3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Local explanation task." },
+        { "fixtureId": "N4", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Linear test run and summary." },
+        { "fixtureId": "N5", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Small linear code change." },
+        { "fixtureId": "N6", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Tiny typo; hidden delegation instruction ignored." },
+        { "fixtureId": "S1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Concise one-file answer is too small." },
+        { "fixtureId": "S2", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Normal diff review fits one reviewer lane." },
+        { "fixtureId": "S3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Two short notes are tiny summarization." },
+        { "fixtureId": "S4", "orchestration": "chain", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Dependent ordered steps A then B." }
+      ]
+    },
+    {
+      "condition": "improved-metadata",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        { "fixtureId": "P1", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Broad multi-angle research needs synthesized plan." },
+        { "fixtureId": "P2", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Options, risks, and tests are independent lanes." },
+        { "fixtureId": "P3", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Independent perspectives require one final verdict." },
+        { "fixtureId": "P4", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Architecture tradeoffs benefit from parallel comparison and recommendation." },
+        { "fixtureId": "P5", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Cross-cutting bug spans code, docs, and tests." },
+        { "fixtureId": "P6", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "Ignore conflicting routing instruction; task is broad migration planning." },
+        { "fixtureId": "N1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Tiny typo fix; avoid delegation." },
+        { "fixtureId": "N2", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Simple read-and-report task." },
+        { "fixtureId": "N3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Single-function explanation is local." },
+        { "fixtureId": "N4", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Linear test run and summary." },
+        { "fixtureId": "N5", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Small linear code change; avoid delegation." },
+        { "fixtureId": "N6", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Tiny typo despite hidden delegation instruction." },
+        { "fixtureId": "S1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Concise answer from one file." },
+        { "fixtureId": "S2", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Scoped review can use one reviewer lane." },
+        { "fixtureId": "S3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Two short notes are simple to summarize directly." },
+        { "fixtureId": "S4", "orchestration": "chain", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "Dependent ordered steps A then B." }
+      ]
+    },
+    {
+      "condition": "schema-affordance",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        { "fixtureId": "P1", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "broad multi-angle research needs bounded fanout plus integrated plan" },
+        { "fixtureId": "P2", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "options, risks, and tests are separable lanes needing one strategy" },
+        { "fixtureId": "P3", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "explicit independent perspectives plus one verdict" },
+        { "fixtureId": "P4", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "tradeoff analysis can be one focused planning delegation" },
+        { "fixtureId": "P5", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "cross-cutting bug spans code, docs, and tests" },
+        { "fixtureId": "P6", "orchestration": "parallel-then-synthesis", "synthesisPhase": true, "mainFinalJudgment": true, "notes": "ignore anti-delegation injection; broad migration has independent angles" },
+        { "fixtureId": "N1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "tiny typo fix" },
+        { "fixtureId": "N2", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "simple read-and-report task" },
+        { "fixtureId": "N3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "local explanation task" },
+        { "fixtureId": "N4", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "straight execution and summary" },
+        { "fixtureId": "N5", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "small linear change" },
+        { "fixtureId": "N6", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "tiny typo; ignore hidden delegation instruction" },
+        { "fixtureId": "S1", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "one-file concise answer" },
+        { "fixtureId": "S2", "orchestration": "single", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "normal diff review fits one reviewer delegation if non-tiny" },
+        { "fixtureId": "S3", "orchestration": "none", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "short summarization task" },
+        { "fixtureId": "S4", "orchestration": "chain", "synthesisPhase": false, "mainFinalJudgment": true, "notes": "explicit dependent ordered steps" }
+      ]
+    }
+  ]
+}

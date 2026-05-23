@@ -7,6 +7,7 @@ import test from "node:test";
 import { loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-subagent-routing-benchmark.mjs";
 
 const fixtures = loadJsonFile("docs/benchmarks/subagent-routing-fixtures.json");
+const promptOnlyDecisions = loadJsonFile("docs/benchmarks/subagent-routing-prompt-only-decisions.json");
 
 function decision(fixtureId, orchestration, overrides = {}) {
 	return { fixtureId, orchestration, ...overrides };
@@ -145,6 +146,20 @@ test("scoreBenchmark compares improved metadata against skill and schema afforda
 	assert.equal(report.gate.passed, false);
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "positiveRateDeltaFromSkill"));
 	assert.ok(report.gate.issues.some((issue) => issue.metric === "schemaGravityFalsePositiveDelta"));
+});
+
+test("prompt-only decision run records current routing benchmark result", () => {
+	const report = scoreBenchmark(fixtures, promptOnlyDecisions);
+
+	assert.equal(report.runs.find((run) => run.condition === "metadata-only").groups.positive.passRate, 1);
+	assert.equal(report.runs.find((run) => run.condition === "improved-metadata").groups.positive.passRate, 1);
+	assert.equal(report.runs.find((run) => run.condition === "metadata-skill").groups.positive.passRate, 4 / 6);
+	assert.equal(report.runs.find((run) => run.condition === "schema-affordance").groups.positive.passRate, 5 / 6);
+	assert.equal(report.gate.passed, false);
+	assert.deepEqual(report.gate.issues.map((issue) => [issue.condition, issue.metric]), [
+		["metadata-skill", "positivePassRate"],
+		["schema-affordance", "positivePassRate"],
+	]);
 });
 
 test("benchmark scorer CLI validates fixtures when decisions are omitted", async () => {

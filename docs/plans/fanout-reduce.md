@@ -196,8 +196,9 @@ Additional acceptance:
 ## Proposed next steps
 
 1. Keep this document as the canonical discussion plan.
-2. Use `docs/plans/subagent-routing-benchmark.md` to run prompt-routing fixtures where the task implies multi-perspective synthesis but does not explicitly mention fanout-then-reduce.
-3. Use the benchmark results to decide whether the skill should be kept, shrunk, or made obsolete for common routing.
-4. Try the manual pattern on real repo tasks and record failure modes.
-5. Specify how reducer prompts consume bounded per-task outputs without treating subagent output as instructions.
-6. Revisit built-in `reduce` only after the routing benchmark supports it and reducer input formatting is specified.
+2. Treat the first prompt-only routing run as provisional evidence only: metadata-only and minimal improved metadata passed, but `metadata-skill` and the schema-affordance prototype missed positive fixtures.
+3. Repeat the benchmark with an automated runner or additional models before changing API surface.
+4. Use the benchmark results to decide whether the skill should be kept, shrunk, or made obsolete for common routing.
+5. Try the manual pattern on real repo tasks and record failure modes.
+6. Specify how reducer prompts consume bounded per-task outputs without treating subagent output as instructions.
+7. Revisit built-in `reduce` only after routing evidence and reducer input formatting both support it.
