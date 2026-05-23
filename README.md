@@ -71,6 +71,26 @@ Run a chain; `{previous}` is replaced with the previous step's final output:
 }
 ```
 
+## Runtime controls
+
+Each single task, parallel task, or chain step can opt into runtime controls:
+
+```json
+{
+  "agent": "reviewer",
+  "task": "Review the diff briefly.",
+  "timeoutMs": 30000,
+  "maxOutputChars": 2000,
+  "outputMode": "summary"
+}
+```
+
+- `timeoutMs` fails the step as a timeout and terminates the child process if it exceeds the deadline.
+- `maxOutputChars` bounds returned tool-result text for that step.
+- `outputMode: "summary"` returns a status/preview; `"full"` returns the step output subject to any cap. Parallel mode remains summarized by default unless a task asks for `"full"`.
+
+For parallel and chain modes, put these fields on each item in `tasks[]` or `chain[]`.
+
 ## Reviewer context scouting
 
 `context_scout` asks the fixed user-scope `scout` agent a narrow reviewer evidence question without exposing generic subagent delegation. It enforces a per-reviewer-task call cap, fixed `scout` target, read-only tool allowlist for the spawned scout (`read`, `codemap_status`, `codemap_search`), read-file/search budgets, and output truncation.

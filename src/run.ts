@@ -13,6 +13,7 @@ const DEFAULT_AGENT_END_FORCE_KILL_MS = 1000;
 const DEFAULT_ABORT_FORCE_KILL_MS = 5000;
 const DEFAULT_MAX_STDERR_BYTES = 64 * 1024;
 const DEFAULT_MAX_STORED_MESSAGES = 200;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export interface UsageStats {
 	input: number;
@@ -77,6 +78,9 @@ export interface RunSingleAgentOptions {
 	abortForceKillMs?: number;
 	maxStderrBytes?: number;
 	maxStoredMessages?: number;
+	timeoutMs?: number;
+	maxOutputChars?: number;
+	outputMode?: "summary" | "full";
 }
 
 function emptyUsage(): UsageStats {
@@ -214,6 +218,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 
 		args.push(`Task: ${options.task}`);
 		let wasAborted = false;
+		let timedOut = false;
 
 		const exitCode = await new Promise<number>((resolve) => {
 			const invocation = getPiInvocation(args);
@@ -231,6 +236,8 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
 			let forceKillFallbackTimer: ReturnType<typeof setTimeout> | undefined;
 			let abortFallbackTimer: ReturnType<typeof setTimeout> | undefined;
+			let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+			let timeoutFallbackTimer: ReturnType<typeof setTimeout> | undefined;
 			let abortHandler: (() => void) | undefined;
 
 			const finish = (code: number) => {
@@ -239,6 +246,8 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				if (forceKillTimer) clearTimeout(forceKillTimer);
 				if (forceKillFallbackTimer) clearTimeout(forceKillFallbackTimer);
 				if (abortFallbackTimer) clearTimeout(abortFallbackTimer);
+				if (timeoutTimer) clearTimeout(timeoutTimer);
+				if (timeoutFallbackTimer) clearTimeout(timeoutFallbackTimer);
 				if (options.signal && abortHandler) options.signal.removeEventListener("abort", abortHandler);
 				resolve(code);
 			};
@@ -336,6 +345,25 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				finish(1);
 			});
 
+			if (Number.isInteger(options.timeoutMs) && options.timeoutMs > 0 && options.timeoutMs <= MAX_TIMEOUT_MS) {
+				timeoutTimer = scheduleTimer(() => {
+					if (childClosed || resolved) return;
+					timedOut = true;
+					currentResult.stopReason = "timeout";
+					currentResult.errorMessage = `Subagent timed out after ${options.timeoutMs}ms.`;
+					currentResult.stderr = appendLimited(currentResult.stderr, `${currentResult.errorMessage}\n`, maxStderrBytes, "stderr");
+					proc.kill("SIGTERM");
+					timeoutFallbackTimer = scheduleTimer(() => {
+						if (!childClosed && !resolved) {
+							proc.kill("SIGKILL");
+							finish(1);
+						}
+					}, options.abortForceKillMs ?? DEFAULT_ABORT_FORCE_KILL_MS);
+					timeoutFallbackTimer.unref?.();
+				}, options.timeoutMs);
+				timeoutTimer.unref?.();
+			}
+
 			if (options.signal) {
 				const killProc = () => {
 					wasAborted = true;
@@ -354,8 +382,14 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			}
 		});
 
-		currentResult.exitCode = wasAborted && exitCode === 0 ? 1 : exitCode;
-		if (wasAborted) {
+		currentResult.exitCode = (wasAborted || timedOut) && exitCode === 0 ? 1 : exitCode;
+		if (timedOut) {
+			currentResult.stopReason = "timeout";
+			currentResult.errorMessage ||= `Subagent timed out after ${options.timeoutMs}ms.`;
+			if (!currentResult.stderr.includes("Subagent timed out")) {
+				currentResult.stderr = appendLimited(currentResult.stderr, `${currentResult.errorMessage}\n`, maxStderrBytes, "stderr");
+			}
+		} else if (wasAborted) {
 			currentResult.stopReason = "aborted";
 			currentResult.errorMessage ||= "Subagent was aborted.";
 			currentResult.stderr = appendLimited(currentResult.stderr, "Subagent was aborted.\n", maxStderrBytes, "stderr");

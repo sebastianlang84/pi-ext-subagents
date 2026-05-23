@@ -82,10 +82,10 @@ These are negative or borderline tasks used when a visible `reduce` field exists
 
 Built-in `reduce` must not be prototyped for execution until fanout output entering the reducer is reliably bounded and structured.
 
-Acceptable prerequisites:
+Current prerequisite state:
 
-- `maxOutputChars`, `outputMode`, or equivalent per-task output controls are implemented and enforced; or
-- the reduce formatter uses a deterministic bounded summary that cannot include unbounded raw transcripts.
+- `maxOutputChars` and `outputMode` per-task controls are implemented.
+- A built-in reduce formatter still needs a deterministic bounded input shape that cannot include unbounded raw transcripts or treat worker output as instructions.
 
 The routing benchmark may evaluate schema visibility before this gate, but only as a non-executing affordance test.
 

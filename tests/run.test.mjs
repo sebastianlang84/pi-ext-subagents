@@ -213,6 +213,32 @@ test("honors injected timer scheduling for abort fallback", async () => {
 	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
 });
 
+test("times out with SIGTERM then SIGKILL when the child does not close", async () => {
+	const fake = new FakeProcess();
+	const timers = [];
+	const schedule = (fn, ms) => {
+		const timer = { fn, ms, unref() {} };
+		timers.push(timer);
+		return timer;
+	};
+	const promise = startRun(fake, { timeoutMs: 50, abortForceKillMs: 25, now: schedule });
+
+	assert.equal(timers.length, 1);
+	assert.equal(timers[0].ms, 50);
+	timers[0].fn();
+	assert.deepEqual(fake.kills, ["SIGTERM"]);
+	assert.equal(timers.length, 2);
+	assert.equal(timers[1].ms, 25);
+	timers[1].fn();
+
+	const result = await promise;
+	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "timeout");
+	assert.match(result.errorMessage, /timed out after 50ms/);
+	assert.match(result.stderr, /timed out after 50ms/);
+	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
+});
+
 test("handles subprocess spawn errors", async () => {
 	const fake = new FakeProcess();
 	const promise = startRun(fake);

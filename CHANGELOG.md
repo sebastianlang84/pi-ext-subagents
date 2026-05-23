@@ -2,13 +2,14 @@
 
 ## Unreleased
 
-SemVer impact: patch.
+SemVer impact: minor.
 
 - Centralize subagent result classification/diagnostics/parallel-summary policy and reuse it for API and display error semantics.
 - Show richer project-agent trust diagnostics in approval/headless failure paths, including model, tools, paths/realpaths, and mutation-tool warnings.
 - Document advanced subagent workflow recipes and troubleshooting guidance in the README.
 - Add an offline subagent-routing benchmark scorer, fixture set, and npm script for evaluating fanout-then-synthesis decisions without model/provider wiring.
 - Add reviewer-context-scout research docs plus an offline benchmark scorer, fixtures, tests, npm script, agent preflight, experimental reviewer-with-scout agents, prompt-only decision log, non-scout-call guardrail, seeded file/line evidence scoring, and the bounded `context_scout` wrapper tool for fixed-scout reviewer evidence lookups.
+- Add optional per-task runtime controls for `subagent`: `timeoutMs`, `maxOutputChars`, and `outputMode` for single, parallel, and chain steps.
 
 ## 1.1.2 - 2026-05-16
 

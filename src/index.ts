@@ -98,16 +98,24 @@ function shortenPath(p: string): string {
 	return p.startsWith(home) ? `~${p.slice(home.length)}` : p;
 }
 
+const RuntimeControls = {
+	timeoutMs: Type.Optional(Type.Integer()),
+	maxOutputChars: Type.Optional(Type.Integer()),
+	outputMode: Type.Optional(StringEnum(["summary", "full"] as const)),
+};
+
 const TaskItem = Type.Object({
 	agent: Type.String(),
 	task: Type.String(),
 	cwd: Type.Optional(Type.String()),
+	...RuntimeControls,
 });
 
 const ChainItem = Type.Object({
 	agent: Type.String(),
 	task: Type.String({ description: "Use {previous} for prior output." }),
 	cwd: Type.Optional(Type.String()),
+	...RuntimeControls,
 });
 
 const AgentScopeSchema = StringEnum(["user", "project", "both"] as const, {
@@ -125,6 +133,7 @@ const SubagentParams = Type.Object({
 		Type.Boolean({ description: "Prompt before project agents; default true.", default: true }),
 	),
 	cwd: Type.Optional(Type.String()),
+	...RuntimeControls,
 });
 
 type SubagentToolDefinition = Parameters<ExtensionAPI["registerTool"]>[0];
@@ -136,12 +145,11 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 	return {
 		name: "subagent",
 		label: "Subagent",
-		description: "Delegate scoped work to specialized Pi subagents in isolated contexts. Supports single, parallel, and chain modes; default agent scope is user.",
-		promptSnippet: "Delegate scoped work to isolated subagents; supports single, parallel, and chain.",
+		description: "Run isolated Pi subagents: single, parallel, or chain; user scope by default.",
+		promptSnippet: "Run isolated subagents.",
 		promptGuidelines: [
-			"Use subagent for context isolation, independent review, or bounded specialist work; skip tiny tasks.",
-			"Give subagent prompts goal, scope, constraints, allowed paths/tools, stop conditions, and output shape; main agent owns final judgment.",
-			"Use subagent parallel for independent lanes, chain for dependent handoffs, and project scope only for trusted repos.",
+			"Use for scoped delegation; main agent owns final judgment.",
+			"Prefer parallel for independent lanes, chain for ordered handoffs; avoid tiny tasks.",
 		],
 		parameters: SubagentParams,
 

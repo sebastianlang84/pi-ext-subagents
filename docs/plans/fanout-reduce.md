@@ -157,7 +157,7 @@ Exact typing may differ, but the API should make fanout and reducer phases separ
 ## Risks and constraints
 
 - **Prompt-facing token budget:** the registered tool currently has little budget headroom. Adding schema descriptions or guidelines may violate `npm run check:token-injection`.
-- **Output growth:** fanout outputs can be large. Built-in `reduce` should be blocked until output bounding such as `maxOutputChars` or `outputMode` exists or an equivalent bounded structured fanout summary is specified.
+- **Output growth:** fanout outputs can be large. Per-task `maxOutputChars` and `outputMode` now exist, but built-in `reduce` still needs a deterministic bounded/structured reducer input format.
 - **Process argv exposure/limits:** prompts are currently passed to the child process as CLI arguments. Built-in reduce could worsen argv length and visibility until prompt transport changes.
 - **Prompt injection:** reducer prompts include subagent outputs. The formatter must clearly delimit outputs and tell the reducer to treat them as data, not instructions.
 - **Result shape:** callers need to know whether `details.results` contains only fanout results, the reducer result, or both.
@@ -179,7 +179,7 @@ Exact typing may differ, but the API should make fanout and reducer phases separ
 
 Do not implement built-in `reduce` until the hard prerequisites are met:
 
-- Fanout outputs are reliably bounded and structured before entering a reducer prompt.
+- Fanout outputs use the per-task output controls or another deterministic bounded/structured format before entering a reducer prompt.
 - Partial-failure, all-failed, reducer-failed, and abort semantics are specified and covered by tests.
 - `details` and display behavior are specified before coding, with separate fanout and reducer phase data.
 - Any improved metadata or minimal schema includes an `npm run check:token-injection` report and justifies prompt-facing token growth; use explicit `--max-*-tokens` thresholds only when the benchmark run defines them.
@@ -199,5 +199,5 @@ Additional acceptance:
 2. Use `docs/plans/subagent-routing-benchmark.md` to run prompt-routing fixtures where the task implies multi-perspective synthesis but does not explicitly mention fanout-then-reduce.
 3. Use the benchmark results to decide whether the skill should be kept, shrunk, or made obsolete for common routing.
 4. Try the manual pattern on real repo tasks and record failure modes.
-5. Implement/enforce output controls (`maxOutputChars`, `outputMode`, or equivalent bounded summaries) before any built-in `reduce` prototype.
-6. Revisit built-in `reduce` only after the routing benchmark and output-bounding prerequisite are satisfied.
+5. Specify how reducer prompts consume bounded per-task outputs without treating subagent output as instructions.
+6. Revisit built-in `reduce` only after the routing benchmark supports it and reducer input formatting is specified.

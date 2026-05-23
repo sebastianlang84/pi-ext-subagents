@@ -40,13 +40,17 @@ function testCtx(cwd, overrides = {}) {
 
 function recordingRunner(calls) {
 	return async (options) => {
-		calls.push({
+		const call = {
 			defaultCwd: options.defaultCwd,
 			cwd: options.cwd,
 			agentName: options.agentName,
 			task: options.task,
 			step: options.step,
-		});
+		};
+		if (options.timeoutMs !== undefined) call.timeoutMs = options.timeoutMs;
+		if (options.maxOutputChars !== undefined) call.maxOutputChars = options.maxOutputChars;
+		if (options.outputMode !== undefined) call.outputMode = options.outputMode;
+		calls.push(call);
 		const agent = options.agents.find((candidate) => candidate.name === options.agentName);
 		return agentResult(options.agentName, `output:${options.task}`, 0, {
 			agentSource: agent?.source ?? "unknown",
@@ -311,6 +315,27 @@ test("execute reports invalid requested agents before spawning", async () => {
 	assert.equal(result.details.results.length, 0);
 });
 
+test("single mode passes runtime controls to execution and formats bounded summary output", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-single-"));
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{ agent: "runner", task: "run", agentScope: "project", confirmProjectAgents: false, timeoutMs: 50, maxOutputChars: 6, outputMode: "summary" },
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(result.content[0].text, "[runner] completed: out...");
+	assert.deepEqual(calls, [{ defaultCwd: project, cwd: undefined, agentName: "runner", task: "run", step: undefined, timeoutMs: 50, maxOutputChars: 6, outputMode: "summary" }]);
+});
+
 test("single mode discovers project agents from context cwd and executes from request cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-single-"));
 	const project = path.join(root, "repo");
@@ -371,6 +396,33 @@ test("parallel mode discovers project agents from context cwd and passes each ta
 	);
 });
 
+test("parallel mode applies per-task output controls", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-parallel-"));
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	writeProjectAgent(project, "runner");
+	const tool = registerExtension({ runSingleAgent: recordingRunner([]) });
+
+	const result = await tool.execute(
+		"id",
+		{
+			agentScope: "project",
+			confirmProjectAgents: false,
+			tasks: [
+				{ agent: "runner", task: "short", maxOutputChars: 8 },
+				{ agent: "runner", task: "full", outputMode: "full", maxOutputChars: 30 },
+			],
+		},
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.match(result.content[0].text, /\[runner\] completed: outpu\.\.\./);
+	assert.match(result.content[0].text, /\[runner\] completed: output:full/);
+});
+
 test("chain mode discovers project agents from context cwd and passes each step cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-chain-"));
 	const project = path.join(root, "repo");
@@ -403,6 +455,33 @@ test("chain mode discovers project agents from context cwd and passes each step 
 		{ defaultCwd: project, cwd: cwdA, agentName: "runner", task: "first", step: 1 },
 		{ defaultCwd: project, cwd: cwdB, agentName: "runner", task: "second output:first", step: 2 },
 	]);
+});
+
+test("chain mode uses bounded prior output for handoff when controls are set", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-chain-"));
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{
+			agentScope: "project",
+			confirmProjectAgents: false,
+			chain: [
+				{ agent: "runner", task: "first", maxOutputChars: 6 },
+				{ agent: "runner", task: "second {previous}" },
+			],
+		},
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(calls[1].task, "second out...");
 });
 
 test("project-agent discovery uses context cwd, not the requested execution cwd", async () => {

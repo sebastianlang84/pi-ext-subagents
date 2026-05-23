@@ -1,16 +1,25 @@
 import type { AgentScope } from "./agents.js";
 
 const MAX_PARALLEL_TASKS = 8;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export type SubagentMode = "single" | "parallel" | "chain";
 
-export interface RequestTask {
+export type OutputMode = "summary" | "full";
+
+export interface RuntimeControls {
+	timeoutMs?: number;
+	maxOutputChars?: number;
+	outputMode?: OutputMode;
+}
+
+export interface RequestTask extends RuntimeControls {
 	agent?: string;
 	task?: string;
 	cwd?: string;
 }
 
-export interface SubagentParams {
+export interface SubagentParams extends RuntimeControls {
 	agent?: string;
 	task?: string;
 	tasks?: RequestTask[];
@@ -20,7 +29,7 @@ export interface SubagentParams {
 	cwd?: string;
 }
 
-export interface ExecutionStep {
+export interface ExecutionStep extends RuntimeControls {
 	agent: string;
 	task: string;
 	cwd?: string;
@@ -49,17 +58,49 @@ function fieldProvided(value: unknown): boolean {
 	return value !== undefined && value !== null;
 }
 
+function validatePositiveInteger(value: unknown, label: string, max?: number): number | undefined {
+	if (!fieldProvided(value)) return undefined;
+	if (!Number.isInteger(value) || (value as number) <= 0 || (max !== undefined && (value as number) > max)) {
+		const suffix = max === undefined ? "" : ` up to ${max}`;
+		throw new RequestValidationError(`${label} must be a positive integer${suffix} when provided.`);
+	}
+	return value as number;
+}
+
+function validateOutputMode(value: unknown, label: string): OutputMode | undefined {
+	if (!fieldProvided(value)) return undefined;
+	if (value !== "summary" && value !== "full") {
+		throw new RequestValidationError(`${label} must be "summary" or "full" when provided.`);
+	}
+	return value;
+}
+
+function runtimeControlsProvided(item: RuntimeControls): boolean {
+	return fieldProvided(item.timeoutMs) || fieldProvided(item.maxOutputChars) || fieldProvided(item.outputMode);
+}
+
+function validateRuntimeControls(item: RuntimeControls, label: string): RuntimeControls {
+	const controls: RuntimeControls = {};
+	const timeoutMs = validatePositiveInteger(item.timeoutMs, `${label}.timeoutMs`, MAX_TIMEOUT_MS);
+	const maxOutputChars = validatePositiveInteger(item.maxOutputChars, `${label}.maxOutputChars`);
+	const outputMode = validateOutputMode(item.outputMode, `${label}.outputMode`);
+	if (timeoutMs !== undefined) controls.timeoutMs = timeoutMs;
+	if (maxOutputChars !== undefined) controls.maxOutputChars = maxOutputChars;
+	if (outputMode !== undefined) controls.outputMode = outputMode;
+	return controls;
+}
+
 function validateTaskItem(item: RequestTask, label: string): ExecutionStep {
 	if (!hasNonEmptyString(item.agent)) throw new RequestValidationError(`${label}.agent must be a non-empty string.`);
 	if (!hasNonEmptyString(item.task)) throw new RequestValidationError(`${label}.task must be a non-empty string.`);
 	if (fieldProvided(item.cwd) && !hasNonEmptyString(item.cwd)) {
 		throw new RequestValidationError(`${label}.cwd must be a non-empty string when provided.`);
 	}
-	return { agent: item.agent, task: item.task, cwd: item.cwd };
+	return { agent: item.agent, task: item.task, cwd: item.cwd, ...validateRuntimeControls(item, label) };
 }
 
 export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan {
-	const hasSingleFields = fieldProvided(params.agent) || fieldProvided(params.task) || fieldProvided(params.cwd);
+	const hasSingleFields = fieldProvided(params.agent) || fieldProvided(params.task) || fieldProvided(params.cwd) || runtimeControlsProvided(params);
 	const hasParallelField = fieldProvided(params.tasks);
 	const hasChainField = fieldProvided(params.chain);
 	const modeCount = Number(hasSingleFields) + Number(hasParallelField) + Number(hasChainField);
@@ -80,7 +121,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 			mode: "single",
 			agentScope,
 			confirmProjectAgents,
-			steps: [validateTaskItem({ agent: params.agent, task: params.task, cwd: params.cwd }, "single")],
+			steps: [validateTaskItem({ agent: params.agent, task: params.task, cwd: params.cwd, timeoutMs: params.timeoutMs, maxOutputChars: params.maxOutputChars, outputMode: params.outputMode }, "single")],
 		};
 	}
 

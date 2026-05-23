@@ -5,7 +5,7 @@ const DEFAULT_PREVIEW_CHARS = 100;
 export type ResultSummaryStatus = "completed" | "failed";
 
 export interface ResultSummaryPolicy {
-	previewChars: number;
+	previewChars: number | ((result: SingleResult, status: ResultSummaryStatus) => number);
 	classify(result: SingleResult): ResultSummaryStatus;
 	getSuccessfulOutput(result: SingleResult): string;
 	getFailureDiagnostic(result: SingleResult): string;
@@ -42,8 +42,12 @@ export const defaultResultSummaryPolicy: ResultSummaryPolicy = {
 	getFailureDiagnostic,
 };
 
-function truncatePreview(output: string, maxChars: number): string {
+export function truncatePreview(output: string, maxChars: number): string {
 	return output.slice(0, maxChars) + (output.length > maxChars ? "..." : "");
+}
+
+function getPreviewChars(policy: ResultSummaryPolicy, result: SingleResult, status: ResultSummaryStatus): number {
+	return typeof policy.previewChars === "function" ? policy.previewChars(result, status) : policy.previewChars;
 }
 
 export function buildParallelResultSummary(
@@ -53,7 +57,7 @@ export function buildParallelResultSummary(
 	const entries = results.map((result) => {
 		const status = policy.classify(result);
 		const output = status === "completed" ? policy.getSuccessfulOutput(result) : policy.getFailureDiagnostic(result);
-		const preview = truncatePreview(output, policy.previewChars);
+		const preview = truncatePreview(output, getPreviewChars(policy, result, status));
 		return {
 			status,
 			text: `[${result.agent}] ${status}: ${preview || "(no output)"}`,

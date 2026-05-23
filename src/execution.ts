@@ -12,9 +12,10 @@ import {
 	requestedAgentNames,
 	RequestValidationError,
 	type ExecutionPlan,
+	type ExecutionStep,
 	type SubagentParams,
 } from "./request.js";
-import { buildParallelToolResult, getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
+import { buildParallelToolResult, defaultResultSummaryPolicy, getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
 import {
 	getFinalOutput,
 	runSingleAgent as defaultRunSingleAgent,
@@ -67,6 +68,43 @@ function formatInvalidAgentDiagnostics(invalidAgents: InvalidAgentDiagnostic[], 
 
 function formatAvailableAgents(agents: { name: string; source: string }[]): string {
 	return agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
+}
+
+function truncateOutput(output: string, maxChars?: number): string {
+	if (!maxChars || output.length <= maxChars) return output;
+	if (maxChars <= 3) return output.slice(0, maxChars);
+	return `${output.slice(0, maxChars - 3)}...`;
+}
+
+function formatStepOutput(result: SingleResult, step: ExecutionStep, defaultMode: "summary" | "full"): string {
+	const output = getFinalOutput(result.messages);
+	const mode = step.outputMode ?? defaultMode;
+	if (mode === "summary") {
+		return `[${result.agent}] completed: ${truncateOutput(output.trim(), step.maxOutputChars ?? 100) || "(no output)"}`;
+	}
+	return truncateOutput(output, step.maxOutputChars);
+}
+
+function formatStepDiagnostic(result: SingleResult, step: ExecutionStep): string {
+	return truncateOutput(getFailureDiagnostic(result).trim(), step.maxOutputChars);
+}
+
+function buildParallelPolicy(results: SingleResult[], steps: ExecutionStep[]) {
+	const controlsByResult = new Map(results.map((result, index) => [result, steps[index]]));
+	const stepFor = (result: SingleResult) => controlsByResult.get(result);
+	return {
+		...defaultResultSummaryPolicy,
+		previewChars: (result: SingleResult, _status: "completed" | "failed") => {
+			const step = stepFor(result);
+			if (!step) return defaultResultSummaryPolicy.previewChars as number;
+			const defaultPreview = defaultResultSummaryPolicy.previewChars as number;
+			if (step.outputMode === "full") return Number.MAX_SAFE_INTEGER;
+			if (step.maxOutputChars !== undefined && step.maxOutputChars < defaultPreview) return Number.MAX_SAFE_INTEGER;
+			return defaultPreview;
+		},
+		getSuccessfulOutput: (result: SingleResult) => truncateOutput(getFinalOutput(result.messages).trim(), stepFor(result)?.maxOutputChars),
+		getFailureDiagnostic: (result: SingleResult) => truncateOutput(getFailureDiagnostic(result), stepFor(result)?.maxOutputChars),
+	};
 }
 
 async function mapWithConcurrencyLimit<TIn, TOut>(
@@ -214,6 +252,9 @@ export async function executeSubagentPlan(
 				task: taskWithContext,
 				cwd: step.cwd,
 				step: i + 1,
+				timeoutMs: step.timeoutMs,
+				maxOutputChars: step.maxOutputChars,
+				outputMode: step.outputMode,
 				signal,
 				onUpdate: chainUpdate,
 				makeDetails: makeDetails("chain"),
@@ -221,17 +262,18 @@ export async function executeSubagentPlan(
 			results.push(result);
 
 			if (!isSuccessfulResult(result)) {
-				const errorMsg = getFailureDiagnostic(result) || "(no output)";
+				const errorMsg = formatStepDiagnostic(result, step) || "(no output)";
 				return {
 					content: [{ type: "text", text: `Chain stopped at step ${i + 1} (${step.agent}): ${errorMsg}` }],
 					details: makeDetails("chain")(results),
 					isError: true,
 				};
 			}
-			previousOutput = getFinalOutput(result.messages);
+			previousOutput = step.maxOutputChars !== undefined || step.outputMode !== undefined ? formatStepOutput(result, step, "full") : getFinalOutput(result.messages);
 		}
+		const finalOutput = formatStepOutput(results[results.length - 1], plan.steps[plan.steps.length - 1], "full") || "(no output)";
 		return {
-			content: [{ type: "text", text: getFinalOutput(results[results.length - 1].messages) || "(no output)" }],
+			content: [{ type: "text", text: finalOutput }],
 			details: makeDetails("chain")(results),
 		};
 	}
@@ -265,6 +307,9 @@ export async function executeSubagentPlan(
 				agentName: step.agent,
 				task: step.task,
 				cwd: step.cwd,
+				timeoutMs: step.timeoutMs,
+				maxOutputChars: step.maxOutputChars,
+				outputMode: step.outputMode,
 				signal,
 				onUpdate: (partial) => {
 					if (partial.details?.results[0]) {
@@ -279,7 +324,7 @@ export async function executeSubagentPlan(
 			return result;
 		});
 
-		return buildParallelToolResult(results, makeDetails("parallel")(results));
+		return buildParallelToolResult(results, makeDetails("parallel")(results), buildParallelPolicy(results, plan.steps));
 	}
 
 	const step = plan.steps[0];
@@ -289,12 +334,15 @@ export async function executeSubagentPlan(
 		agentName: step.agent,
 		task: step.task,
 		cwd: step.cwd,
+		timeoutMs: step.timeoutMs,
+		maxOutputChars: step.maxOutputChars,
+		outputMode: step.outputMode,
 		signal,
 		onUpdate,
 		makeDetails: makeDetails("single"),
 	});
 	if (!isSuccessfulResult(result)) {
-		const errorMsg = getFailureDiagnostic(result) || "(no output)";
+		const errorMsg = formatStepDiagnostic(result, step) || "(no output)";
 		return {
 			content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${errorMsg}` }],
 			details: makeDetails("single")([result]),
@@ -302,7 +350,7 @@ export async function executeSubagentPlan(
 		};
 	}
 	return {
-		content: [{ type: "text", text: getFinalOutput(result.messages) || "(no output)" }],
+		content: [{ type: "text", text: formatStepOutput(result, step, "full") || "(no output)" }],
 		details: makeDetails("single")([result]),
 	};
 }

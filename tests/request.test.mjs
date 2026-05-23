@@ -17,6 +17,20 @@ test("normalizes single, parallel, and chain requests", () => {
 	assert.deepEqual(normalizeSubagentRequest({ chain: [{ agent: "a", task: "x" }] }).steps[0].step, 1);
 });
 
+test("normalizes optional per-task runtime controls", () => {
+	assert.deepEqual(normalizeSubagentRequest({ agent: "reviewer", task: "check", timeoutMs: 1000, maxOutputChars: 80, outputMode: "summary" }).steps[0], {
+		agent: "reviewer",
+		task: "check",
+		cwd: undefined,
+		timeoutMs: 1000,
+		maxOutputChars: 80,
+		outputMode: "summary",
+	});
+
+	assert.deepEqual(normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 5 }] }).steps[0].timeoutMs, 5);
+	assert.deepEqual(normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "full" }] }).steps[0].outputMode, "full");
+});
+
 test("rejects mixed modes, empty tasks, and incomplete single mode consistently", () => {
 	for (const params of [
 		{ agent: "a", task: "x", tasks: [{ agent: "b", task: "y" }] },
@@ -41,4 +55,13 @@ test("rejects invalid agentScope and whitespace cwd values", () => {
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", cwd: "   " }), /single\.cwd/);
 	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", cwd: "\n" }] }), /tasks\[0\]\.cwd/);
 	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", cwd: "\t" }] }), /chain\[0\]\.cwd/);
+});
+
+test("rejects invalid runtime controls", () => {
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", timeoutMs: 0 }), /single\.timeoutMs/);
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", timeoutMs: 2_147_483_648 }), /single\.timeoutMs/);
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", maxOutputChars: -1 }), /single\.maxOutputChars/);
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", outputMode: "verbose" }), /single\.outputMode/);
+	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 1.5 }] }), /tasks\[0\]\.timeoutMs/);
+	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "verbose" }] }), /chain\[0\]\.outputMode/);
 });

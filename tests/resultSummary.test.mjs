@@ -45,6 +45,18 @@ test("parallel result summary accepts custom classification and truncation polic
 	assert.doesNotMatch(summary.text, /stderr diagnostic/);
 });
 
+test("parallel result summary accepts per-result preview lengths", () => {
+	const short = agentResult("short", "abcdef");
+	const long = agentResult("long", "abcdef");
+	const summary = buildParallelResultSummary([short, long], {
+		...defaultResultSummaryPolicy,
+		previewChars: (result) => result.agent === "short" ? 2 : 5,
+	});
+
+	assert.match(summary.text, /\[short\] completed: ab\.\.\./);
+	assert.match(summary.text, /\[long\] completed: abcde\.\.\./);
+});
+
 test("parallel result summary accepts custom failure diagnostics", () => {
 	const summary = buildParallelResultSummary(
 		[agentResult("custom", "assistant partial", 1, { errorMessage: "default diagnostic", stderr: "stderr diagnostic" })],
