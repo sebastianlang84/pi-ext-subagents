@@ -13,9 +13,15 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Canonical research plan: `docs/plans/reviewer-context-scout.md`.
    - Goal: let reviewer subagents ask bounded, evidence-only context questions without recursive agent fanout.
    - Benchmark scaffold: `docs/benchmarks/reviewer-context-scout-fixtures.json`, `scripts/score-reviewer-context-scout-benchmark.mjs`, `npm run benchmark:reviewer-context-scout`.
-   - Current gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
+   - Prompt-only gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
+   - Wrapper prototype: `context_scout` enforces fixed user-scope `scout`, max 2 calls per reviewer task, read-only scout tool allowlist, and output caps; `.pi/agents/reviewer-with-context-scout.md` opts into it.
    - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate, including seeded `evidenceRefs[]` file/line checks.
-   - Next: add no-scout baseline / seeded review-miss cases to measure whether scout evidence catches issues that plain review misses.
+   - Next: collect a wrapper decision run plus no-scout baseline / seeded review-miss cases to measure whether scout evidence catches issues that plain review misses.
+   - Follow-ups to discuss:
+     - Budget enforcement is post-run; over-budget scout work is returned as an error after completion rather than being interrupted live.
+     - Tool/UX name `context_scout` is technical; consider a clearer reviewer-facing name such as `ask_scout`.
+     - Scout output is currently raw text; consider validating/normalizing structured evidence refs, gaps, and confidence.
+     - Default/global reviewer opt-in is unresolved; current staged agent is `.pi/agents/reviewer-with-context-scout.md`.
 
 3. [ ] Add optional per-task runtime controls.
    - Candidate options: `timeoutMs`, `maxOutputChars`, `outputMode: "summary" | "full"`.

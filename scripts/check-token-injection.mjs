@@ -4,7 +4,7 @@ import { createJiti } from "jiti";
 
 export const TOKEN_INJECTION_FIELDS = ["description", "parameters", "promptSnippet", "promptGuidelines"];
 
-export const defaultTokenInjectionBudgets = {};
+export const defaultTokenInjectionBudgets = { maxTokensPerTool: 350, maxTotalTokens: 500 };
 
 export function estimateTokenInjectionTokens(text) {
 	const normalized = String(text).replace(/\s+/g, " ").trim();
@@ -31,7 +31,10 @@ export async function collectSubagentToolRegistrations() {
 	const importedExtension = await jiti.import("../src/index.ts", { default: true });
 	const extension = typeof importedExtension === "function" ? importedExtension : importedExtension.default;
 	const tools = [];
-	extension({ registerTool(tool) { tools.push(tool); } });
+	extension({
+		on() {},
+		registerTool(tool) { tools.push(tool); },
+	});
 	return tools;
 }
 
@@ -103,7 +106,7 @@ export function formatTokenInjectionBudgetFailure(report, issues) {
 
 function parseCliArgs(args) {
 	const budgets = { ...defaultTokenInjectionBudgets };
-	let gateEnabled = false;
+	let gateEnabled = true;
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
 		const [name, inlineValue] = arg.split("=", 2);

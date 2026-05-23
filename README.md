@@ -1,6 +1,6 @@
 # pi-subagents
 
-Pi package that adds a `subagent` tool for delegating work to specialized agents in isolated Pi processes. It supports single-agent runs, bounded parallel delegation, and chained handoffs.
+Pi package that adds a `subagent` tool for delegating work to specialized agents in isolated Pi processes, plus a bounded `context_scout` wrapper for reviewer evidence lookups. It supports single-agent runs, bounded parallel delegation, chained handoffs, and fixed-scout evidence packets.
 
 ## Install
 
@@ -19,7 +19,7 @@ npm run check:token-injection
 pi install .
 ```
 
-After installation, restart Pi or run `/reload`; the `subagent` tool should appear in the available tools list.
+After installation, restart Pi or run `/reload`; the `subagent` and `context_scout` tools should be available.
 
 ## Agent files
 
@@ -70,6 +70,22 @@ Run a chain; `{previous}` is replaced with the previous step's final output:
   ]
 }
 ```
+
+## Reviewer context scouting
+
+`context_scout` asks the fixed user-scope `scout` agent a narrow reviewer evidence question without exposing generic subagent delegation. It enforces a per-reviewer-task call cap, fixed `scout` target, read-only tool allowlist for the spawned scout (`read`, `codemap_status`, `codemap_search`), read-file/search budgets, and output truncation.
+
+Example:
+
+```json
+{
+  "question": "Which tests cover the changed reviewer-context-scout scoring path?",
+  "scope": "scripts/score-reviewer-context-scout-benchmark.mjs, tests/reviewer-context-scout-benchmark.test.mjs",
+  "budget": { "maxFiles": 4, "maxOutputChars": 2000 }
+}
+```
+
+The package includes `.pi/agents/reviewer-with-context-scout.md` as an experimental project-local reviewer that can call `context_scout` but not `subagent`.
 
 ## Workspace and `cwd` semantics
 
@@ -179,7 +195,7 @@ Run the static prompt-footprint gate before increasing tool descriptions, parame
 npm run check:token-injection
 ```
 
-The report estimates tokens from normalized prompt-facing text and fails when the registered `subagent` tool exceeds its budget.
+The report estimates tokens from normalized prompt-facing text and fails when registered tools exceed configured budgets.
 
 ## Compatibility
 

@@ -45,7 +45,7 @@ Output:
 - No scout-to-scout recursion.
 - Prompt-only baseline can measure violations but cannot enforce them.
 - For prompt-only trials, the configured scout agent must not expose `subagent`, `edit`, or `write` tools.
-- Wrapper implementation must enforce `maxScoutCalls`, output caps, fixed scout allowlist, and no nested scout calls.
+- Wrapper implementation enforces `maxScoutCalls`, output caps, fixed user-scope `scout`, read-only tool allowlist, and no nested scout calls.
 - Scout answers the reviewer directly; no side channel to the main agent.
 - Reviewer must cite scout evidence separately from its own judgment.
 - Keep prompt/tool text compact; no broad workflow injection.
@@ -57,16 +57,16 @@ Output:
    - Can only measure read-only/recursion/call-cap violations, not prevent them.
    - Feasibility gate: reviewer may call only `scout`; scout agent must not have `subagent` or mutation tools.
 
-2. **Wrapper tool**: add a compact `context_scout` tool that internally runs the configured scout agent with fixed budgets and evidence-only output.
+2. **Wrapper tool**: compact `context_scout` tool that internally runs the fixed user-scope `scout` agent with fixed budgets and evidence-only output.
    - Cleaner reviewer UX and safer contract.
-   - Must be opt-in/disabled by default unless tool exposure can be scoped to reviewer agents or the token cost is proven acceptable.
-   - Do not implement if it would become unavoidable prompt-facing surface for all agents without measured benefit.
+   - Implemented as the product path; use `.pi/agents/reviewer-with-context-scout.md` for opt-in reviewer trials.
+   - Keep prompt-facing text small because Pi currently registers package tools globally.
 
 3. **Orchestrator fanout**: main agent launches scout(s) before reviewer.
    - Simple responsibility model.
    - Less adaptive because missing context is discovered during review.
 
-Preferred research path: test option 1 with routing/eval fixtures; implement option 2 only if it measurably reduces bad delegation or review misses.
+Preferred research path: keep option 1 as the prompt-only baseline, use option 2 for wrapper trials, and compare both against no-scout decisions before changing a default reviewer.
 
 ## Evaluation
 
@@ -98,13 +98,15 @@ Run a scored decisions report:
 npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisions.json --threshold-gate
 ```
 
-Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`; they now include seeded `evidenceRefs[]` with file/line ranges.
+Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`; they include seeded `evidenceRefs[]` with file/line ranges.
+
+Wrapper trials should use `.pi/agents/reviewer-with-context-scout.md`, which exposes `context_scout` instead of generic `subagent`.
 
 Compare conditions:
 
 1. no scout available.
 2. prompt-only scout via existing `subagent`.
-3. wrapper `context_scout`, only if the prompt-only baseline shows useful signal and unacceptable guardrail misses.
+3. wrapper `context_scout` via `.pi/agents/reviewer-with-context-scout.md`.
 
 Fixture cases:
 
@@ -144,6 +146,5 @@ Metrics:
 ## Open questions
 
 - Can Pi/tool access be scoped enough that only reviewer agents see `context_scout`?
-- If not, is an opt-in wrapper with added prompt surface still worth it?
-- Should the scout agent be fixed (`scout`) or selectable from a small allowlist?
+- Should the scout tool allow richer CodeMap context later, and if so how should multi-file lookups be counted against file budgets?
 - How should evidence packets expose file line ranges without encouraging over-reading?

@@ -9,19 +9,23 @@ import {
 	formatTokenInjectionBudgetFailure,
 } from "../scripts/check-token-injection.mjs";
 
-test("registered subagent tool reports token injection fields", async () => {
+test("registered tools report token injection fields", async () => {
 	const report = await buildSubagentTokenInjectionReport("2026-05-16T00:00:00.000Z");
 
-	assert.deepEqual(defaultTokenInjectionBudgets, {});
-	assert.deepEqual(report.tools.map((tool) => tool.name), ["subagent"]);
-	const subagent = report.tools[0];
+	assert.deepEqual(defaultTokenInjectionBudgets, { maxTokensPerTool: 350, maxTotalTokens: 500 });
+	assert.deepEqual(report.tools.map((tool) => tool.name), ["subagent", "context_scout"]);
+	const subagent = report.tools.find((tool) => tool.name === "subagent");
+	const contextScout = report.tools.find((tool) => tool.name === "context_scout");
 	assert.ok(subagent.fields.description.tokens > 0, "description tokens should be counted");
 	assert.ok(subagent.fields.parameters.tokens > 0, "parameter schema tokens should be counted");
 	assert.ok(subagent.fields.promptSnippet.tokens > 0, "promptSnippet tokens should be counted");
 	assert.ok(subagent.fields.promptGuidelines.tokens > 0, "promptGuidelines tokens should be counted");
+	assert.ok(contextScout.fields.description.tokens > 0, "context_scout description tokens should be counted");
+	assert.ok(contextScout.fields.parameters.tokens > 0, "context_scout schema tokens should be counted");
+	assert.ok(contextScout.total.tokens < subagent.total.tokens, "context_scout prompt footprint should stay smaller than subagent");
 });
 
-test("token-injection budget gate only enforces explicit budgets", async () => {
+test("token-injection budget gate enforces default and override budgets", async () => {
 	const report = await buildSubagentTokenInjectionReport("2026-05-16T00:00:00.000Z");
 
 	assert.equal(evaluateTokenInjectionBudget(report).passed, true);
@@ -35,14 +39,14 @@ test("token-injection checker emits a machine-readable report", () => {
 	const report = JSON.parse(output);
 
 	assert.equal(report.gate?.passed, true);
-	assert.deepEqual(report.gate?.budgets, {});
-	assert.deepEqual(report.tools?.map((tool) => tool.name), ["subagent"]);
+	assert.deepEqual(report.gate?.budgets, { maxTokensPerTool: 350, maxTotalTokens: 500 });
+	assert.deepEqual(report.tools?.map((tool) => tool.name), ["subagent", "context_scout"]);
 	assert.ok((report.totals?.tokens ?? 0) > 0);
 });
 
-test("token-injection checker requires explicit budget values for gating", () => {
+test("token-injection checker rejects invalid explicit budgets", () => {
 	assert.throws(
-		() => execFileSync(process.execPath, ["scripts/check-token-injection.mjs", "--budget-gate"], { encoding: "utf8", stdio: "pipe" }),
-		/--budget-gate requires --max-tool-tokens/,
+		() => execFileSync(process.execPath, ["scripts/check-token-injection.mjs", "--max-tool-tokens", "nope"], { encoding: "utf8", stdio: "pipe" }),
+		/--max-tool-tokens must be a positive integer/,
 	);
 });
