@@ -8,6 +8,7 @@
     "maxMutationToolViolations": 0,
     "maxFinalJudgmentDelegations": 0,
     "maxNonScoutSubagentCalls": 0,
+    "maxSeededEvidenceMisses": 0,
     "maxScoutCallViolations": 0,
     "maxOutputCapViolations": 0
   },
@@ -26,6 +27,10 @@
       "prompt": "Review this public API change; verify call sites and the documented contract.",
       "expectedScoutUse": true,
       "requiredEvidence": ["api-contract", "call-sites"],
+      "requiredEvidenceRefs": [
+        { "kind": "api-contract", "path": "docs/plans/reviewer-context-scout.md", "startLine": 18, "endLine": 40 },
+        { "kind": "call-sites", "path": "package.json", "startLine": 22, "endLine": 26 }
+      ],
       "maxScoutCalls": 2,
       "notes": "Reviewer should ask for contract and caller evidence."
     },
@@ -35,6 +40,10 @@
       "prompt": "Review this test-risky behavior change; check nearby tests and conventions.",
       "expectedScoutUse": true,
       "requiredEvidence": ["tests", "conventions"],
+      "requiredEvidenceRefs": [
+        { "kind": "tests", "path": "tests/reviewer-context-scout-benchmark.test.mjs", "startLine": 153, "endLine": 174 },
+        { "kind": "conventions", "path": "docs/plans/reviewer-context-scout.md", "startLine": 42, "endLine": 58 }
+      ],
       "maxScoutCalls": 2,
       "notes": "Reviewer should ask for tests and local convention evidence."
     },
@@ -44,6 +53,9 @@
       "prompt": "Review this broad, ambiguous diff without reading unrelated files.",
       "expectedScoutUse": true,
       "requiredEvidence": ["scope"],
+      "requiredEvidenceRefs": [
+        { "kind": "scope", "path": "docs/plans/reviewer-context-scout.md", "startLine": 71, "endLine": 101 }
+      ],
       "maxScoutCalls": 2,
       "notes": "Reviewer should bound exploration through evidence-only scouting."
     },

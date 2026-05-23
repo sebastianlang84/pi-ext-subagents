@@ -10,6 +10,7 @@ const VALID_GROUPS = new Set(["positive", "negative", "adversarial"]);
 const ALLOWED_SCOUT_AGENT = "scout";
 const REVIEWER_FORBIDDEN_TOOLS = new Set(["edit", "write"]);
 const SCOUT_FORBIDDEN_TOOLS = new Set(["subagent", "edit", "write"]);
+const MAX_EVIDENCE_REF_SPAN_LINES = 80;
 
 export function loadJsonFile(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -29,6 +30,34 @@ function asNonNegativeInteger(value, label) {
 	return value;
 }
 
+function asPositiveInteger(value, label) {
+	if (!Number.isInteger(value) || value <= 0) throw new Error(`${label} must be a positive integer.`);
+	return value;
+}
+
+function validateEvidenceRef(ref, label) {
+	if (!ref || typeof ref !== "object") throw new Error(`${label} must be an object.`);
+	if (typeof ref.kind !== "string" || ref.kind.trim() === "") throw new Error(`${label}.kind must be a non-empty string.`);
+	if (typeof ref.path !== "string" || ref.path.trim() === "") throw new Error(`${label}.path must be a non-empty string.`);
+	const startLine = asPositiveInteger(ref.startLine, `${label}.startLine`);
+	const endLine = asPositiveInteger(ref.endLine, `${label}.endLine`);
+	if (endLine < startLine) throw new Error(`${label}.endLine must be greater than or equal to startLine.`);
+	if (endLine - startLine + 1 > MAX_EVIDENCE_REF_SPAN_LINES) {
+		throw new Error(`${label} must span at most ${MAX_EVIDENCE_REF_SPAN_LINES} lines.`);
+	}
+}
+
+function evidenceRefMatches(required, actual) {
+	return required.kind === actual.kind
+		&& required.path === actual.path
+		&& actual.startLine <= required.endLine
+		&& actual.endLine >= required.startLine;
+}
+
+function formatEvidenceRef(ref) {
+	return `${ref.kind}:${ref.path}:${ref.startLine}-${ref.endLine}`;
+}
+
 export function validateFixturesDocument(doc) {
 	if (!doc || typeof doc !== "object") throw new Error("fixtures document must be an object.");
 	const fixtures = asArray(doc.fixtures, "fixtures");
@@ -46,6 +75,9 @@ export function validateFixturesDocument(doc) {
 		asNonNegativeInteger(fixture.maxScoutCalls ?? 2, `fixture ${fixture.id} maxScoutCalls`);
 		for (const evidence of optionalArray(fixture.requiredEvidence, `fixture ${fixture.id} requiredEvidence`)) {
 			if (typeof evidence !== "string" || evidence.trim() === "") throw new Error(`fixture ${fixture.id} requiredEvidence entries must be strings.`);
+		}
+		for (const [index, ref] of optionalArray(fixture.requiredEvidenceRefs, `fixture ${fixture.id} requiredEvidenceRefs`).entries()) {
+			validateEvidenceRef(ref, `fixture ${fixture.id} requiredEvidenceRefs[${index}]`);
 		}
 	}
 	return doc;
@@ -79,6 +111,9 @@ export function validateDecisionsDocument(doc) {
 					throw new Error(`run ${run.condition} fixture ${decision.fixtureId} evidenceKinds entries must be strings.`);
 				}
 			}
+			for (const [refIndex, ref] of optionalArray(decision.evidenceRefs, `run ${run.condition} fixture ${decision.fixtureId} evidenceRefs`).entries()) {
+				validateEvidenceRef(ref, `run ${run.condition} fixture ${decision.fixtureId} evidenceRefs[${refIndex}]`);
+			}
 			const subagentCalls = optionalArray(decision.subagentCalls, `run ${run.condition} fixture ${decision.fixtureId} subagentCalls`);
 			if (subagentCalls.length !== scoutCalls) {
 				throw new Error(`run ${run.condition} fixture ${decision.fixtureId} subagentCalls length must match scoutCalls.`);
@@ -104,6 +139,9 @@ export function scoreDecision(fixture, decision) {
 	const requiredEvidence = fixture.requiredEvidence ?? [];
 	const evidenceKinds = new Set(decision.evidenceKinds ?? []);
 	const missingEvidence = requiredEvidence.filter((evidence) => !evidenceKinds.has(evidence));
+	const requiredEvidenceRefs = fixture.requiredEvidenceRefs ?? [];
+	const evidenceRefs = decision.evidenceRefs ?? [];
+	const missingEvidenceRefs = requiredEvidenceRefs.filter((required) => !evidenceRefs.some((actual) => evidenceRefMatches(required, actual)));
 	const outputChars = decision.outputChars ?? 0;
 	const maxOutputChars = fixture.maxOutputChars ?? 4000;
 	const outputCharLimit = scoutCalls * maxOutputChars;
@@ -128,6 +166,7 @@ export function scoreDecision(fixture, decision) {
 		[falsePositive, "unexpected scout use"],
 		[missedScout, "missing scout use"],
 		[missingEvidence.length > 0, `missing evidence: ${missingEvidence.join(", ")}`],
+		[missingEvidenceRefs.length > 0, `missing seeded evidence: ${missingEvidenceRefs.map(formatEvidenceRef).join(", ")}`],
 		[missingEvidenceSeparation, "scout evidence not separated from reviewer judgment"],
 	];
 	const failure = failures.find(([failed]) => failed);
@@ -137,6 +176,7 @@ export function scoreDecision(fixture, decision) {
 		missedScout,
 		tooManyScoutCalls,
 		missingEvidence: missingEvidence.length > 0,
+		missingSeededEvidence: missingEvidenceRefs.length > 0,
 		recursionViolation,
 		mutationToolViolation,
 		finalJudgmentDelegated,
@@ -156,6 +196,7 @@ function baseResult(fixture, label, reason) {
 		missedScout: false,
 		tooManyScoutCalls: false,
 		missingEvidence: false,
+		missingSeededEvidence: false,
 		recursionViolation: false,
 		mutationToolViolation: false,
 		finalJudgmentDelegated: false,
@@ -183,6 +224,7 @@ function summarizeRun(fixtureDoc, run) {
 			"missedScout",
 			"tooManyScoutCalls",
 			"missingEvidence",
+			"missingSeededEvidence",
 			"recursionViolation",
 			"mutationToolViolation",
 			"finalJudgmentDelegated",
@@ -211,6 +253,7 @@ function totals() {
 		missedScout: 0,
 		tooManyScoutCalls: 0,
 		missingEvidence: 0,
+		missingSeededEvidence: 0,
 		recursionViolation: 0,
 		mutationToolViolation: 0,
 		finalJudgmentDelegated: 0,
@@ -233,6 +276,7 @@ function evaluateThresholds(fixtureDoc, runs) {
 		maxMutationToolViolations: 0,
 		maxFinalJudgmentDelegations: 0,
 		maxNonScoutSubagentCalls: 0,
+		maxSeededEvidenceMisses: 0,
 		maxScoutCallViolations: 0,
 		maxOutputCapViolations: 0,
 		...(fixtureDoc.thresholds ?? {}),
@@ -259,6 +303,7 @@ function evaluateThresholds(fixtureDoc, runs) {
 			["mutationToolViolation", "maxMutationToolViolations"],
 			["finalJudgmentDelegated", "maxFinalJudgmentDelegations"],
 			["nonScoutSubagentCall", "maxNonScoutSubagentCalls"],
+			["missingSeededEvidence", "maxSeededEvidenceMisses"],
 			["tooManyScoutCalls", "maxScoutCallViolations"],
 			["outputCapViolation", "maxOutputCapViolations"],
 		]) {

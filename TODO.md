@@ -14,8 +14,8 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Goal: let reviewer subagents ask bounded, evidence-only context questions without recursive agent fanout.
    - Benchmark scaffold: `docs/benchmarks/reviewer-context-scout-fixtures.json`, `scripts/score-reviewer-context-scout-benchmark.mjs`, `npm run benchmark:reviewer-context-scout`.
    - Current gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
-   - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate.
-   - Next: add seeded file/line evidence expectations so scout quality cannot pass by evidence labels alone.
+   - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate, including seeded `evidenceRefs[]` file/line checks.
+   - Next: add no-scout baseline / seeded review-miss cases to measure whether scout evidence catches issues that plain review misses.
 
 3. [ ] Add optional per-task runtime controls.
    - Candidate options: `timeoutMs`, `maxOutputChars`, `outputMode: "summary" | "full"`.

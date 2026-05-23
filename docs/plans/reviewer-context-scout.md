@@ -98,7 +98,7 @@ Run a scored decisions report:
 npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisions.json --threshold-gate
 ```
 
-Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`.
+Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`; they now include seeded `evidenceRefs[]` with file/line ranges.
 
 Compare conditions:
 
@@ -122,13 +122,15 @@ Initial first-slice pass thresholds:
 - 0 non-scout subagent calls.
 - At most 2 scout calls in any reviewer task.
 - Required evidence labels are present for scout-positive fixtures.
+- Seeded file/line evidence refs are present and bounded.
 - Reviewer final findings distinguish scout evidence from reviewer judgment.
 - Total scout output stays within `scoutCalls * maxOutputChars`.
 
-Later seeded-evidence expansion:
+Seeded-evidence expansion:
 
-- Add fixture-local file/line expectations so evidence relevance cannot pass by echoing labels only.
-- Score whether cited evidence catches seeded review misses versus the no-scout baseline.
+- Fixture-local file/line expectations live in `requiredEvidenceRefs[]` so evidence relevance cannot pass by echoing labels only.
+- Decision runs must include matching `evidenceRefs[]`; the scorer uses path/kind equality plus line-range overlap.
+- Next: score whether cited evidence catches seeded review misses versus the no-scout baseline.
 
 Metrics:
 
