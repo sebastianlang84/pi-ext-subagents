@@ -12,6 +12,7 @@ SemVer impact: minor.
 - Record a prompt-only subagent-routing decision run comparing metadata-only, metadata-skill, improved-metadata, and schema-affordance conditions.
 - Add reviewer-context-scout research docs plus an offline benchmark scorer, fixtures, tests, npm script, agent preflight, experimental reviewer-with-scout agents, prompt-only/no-scout/wrapper decision logs, non-scout-call guardrail, seeded file/line evidence scoring, and the bounded `context_scout` wrapper tool for fixed-scout reviewer evidence lookups.
 - Add optional per-task runtime controls for `subagent`: `timeoutMs`, `maxOutputChars`, and `outputMode` for single, parallel, and chain steps.
+- Send subagent task prompts to child Pi processes over stdin instead of argv to reduce process-list exposure and argv-length risk.
 
 ## 1.1.2 - 2026-05-16
 

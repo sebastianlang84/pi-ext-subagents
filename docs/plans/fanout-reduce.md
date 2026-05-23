@@ -158,7 +158,7 @@ Exact typing may differ, but the API should make fanout and reducer phases separ
 
 - **Prompt-facing token budget:** the registered tool currently has little budget headroom. Adding schema descriptions or guidelines may violate `npm run check:token-injection`.
 - **Output growth:** fanout outputs can be large. Per-task `maxOutputChars` and `outputMode` now exist, but built-in `reduce` still needs a deterministic bounded/structured reducer input format.
-- **Process argv exposure/limits:** prompts are currently passed to the child process as CLI arguments. Built-in reduce could worsen argv length and visibility until prompt transport changes.
+- **Prompt transport:** child task prompts are sent over Pi print-mode stdin rather than argv; reducer design still needs bounded formatting to avoid oversized prompt payloads.
 - **Prompt injection:** reducer prompts include subagent outputs. The formatter must clearly delimit outputs and tell the reducer to treat them as data, not instructions.
 - **Result shape:** callers need to know whether `details.results` contains only fanout results, the reducer result, or both.
 - **Display UX:** progress and final display need to make the two phases obvious without hiding partial failures.

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { EventEmitter } from "node:events";
+import type { Writable } from "node:stream";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
@@ -50,6 +51,7 @@ export interface SubagentDetails {
 export type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
 
 export interface SpawnedProcess extends EventEmitter {
+	stdin: Writable;
 	stdout: EventEmitter;
 	stderr: EventEmitter;
 	kill(signal?: NodeJS.Signals | number): boolean;
@@ -58,7 +60,7 @@ export interface SpawnedProcess extends EventEmitter {
 export type ProcessSpawner = (
 	command: string,
 	args: string[],
-	options: { cwd: string; shell: false; stdio: ["ignore", "pipe", "pipe"] },
+	options: { cwd: string; shell: false; stdio: ["pipe", "pipe", "pipe"] },
 ) => SpawnedProcess;
 
 export interface RunSingleAgentOptions {
@@ -216,7 +218,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			args.push("--append-system-prompt", tmpPromptPath);
 		}
 
-		args.push(`Task: ${options.task}`);
+		const taskPrompt = `Task: ${options.task}`;
 		let wasAborted = false;
 		let timedOut = false;
 
@@ -226,7 +228,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			const proc = spawner(invocation.command, invocation.args, {
 				cwd: options.cwd ?? options.defaultCwd,
 				shell: false,
-				stdio: ["ignore", "pipe", "pipe"],
+				stdio: ["pipe", "pipe", "pipe"],
 			});
 
 			let buffer = "";
@@ -363,6 +365,12 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				}, options.timeoutMs);
 				timeoutTimer.unref?.();
 			}
+
+			proc.stdin.on("error", () => {
+				// Ignore EPIPE if Pi exits before consuming stdin; process close/error handles the result.
+			});
+			proc.stdin.write(taskPrompt);
+			proc.stdin.end();
 
 			if (options.signal) {
 				const killProc = () => {

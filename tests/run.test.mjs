@@ -6,7 +6,20 @@ import { createJiti } from "jiti";
 const jiti = createJiti(import.meta.url);
 const { runSingleAgent, getFinalOutput } = await jiti.import("../src/run.ts");
 
+class FakeStdin extends EventEmitter {
+	chunks = [];
+	ended = false;
+	write(chunk) {
+		this.chunks.push(String(chunk));
+		return true;
+	}
+	end() {
+		this.ended = true;
+	}
+}
+
 class FakeProcess extends EventEmitter {
+	stdin = new FakeStdin();
 	stdout = new EventEmitter();
 	stderr = new EventEmitter();
 	kills = [];
@@ -76,6 +89,27 @@ test("parses partial JSON lines, ignores malformed events, and aggregates usage"
 	assert.equal(result.usage.input, 10);
 	assert.equal(result.usage.output, 3);
 	assert.match(result.stderr, /Ignored malformed JSON/);
+});
+
+test("passes the task prompt on stdin instead of argv", async () => {
+	const fake = new FakeProcess();
+	let spawnArgs;
+	let spawnStdio;
+	const promise = startRun(fake, {
+		task: "secret prompt with enough text to matter",
+		spawner: (_command, args, options) => {
+			spawnArgs = args;
+			spawnStdio = options.stdio;
+			return fake;
+		},
+	});
+	setImmediate(() => fake.close(0));
+
+	await promise;
+	assert.deepEqual(spawnStdio, ["pipe", "pipe", "pipe"]);
+	assert.equal(fake.stdin.chunks.join(""), "Task: secret prompt with enough text to matter");
+	assert.equal(fake.stdin.ended, true);
+	assert.ok(!spawnArgs.some((arg) => arg.includes("secret prompt")));
 });
 
 test("spawns in default cwd unless an explicit cwd override is provided", async () => {
