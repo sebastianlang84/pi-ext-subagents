@@ -23,14 +23,9 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
      - Scout output is currently raw text; consider validating/normalizing structured evidence refs, gaps, and confidence.
      - Default/global reviewer opt-in is unresolved; current staged agent is `.pi/agents/reviewer-with-context-scout.md`.
 
-3. [ ] Add a prompt-injection effectiveness test for subagent routing.
-   - Goal: measure whether compact `subagent` tool metadata teaches agents good delegation choices without loading the global `pi-subagents` skill.
-   - Suggested fixture set: tiny task should not delegate; broad codebase question should use scout/reviewer; risky change should request review/oracle; independent checks should use parallel; dependent handoff should use chain; project-agent prompt should preserve trust caution.
-   - Compare decisions with tool metadata only vs. with the `pi-subagents` skill loaded before deciding whether the skill should stay as complementary deep orchestration policy or be further shrunk.
-
 ## P3 (Maintenance / release)
 
-4. [ ] Consider moving task prompts out of process argv.
+3. [ ] Consider moving task prompts out of process argv.
    - Current behavior: `runSingleAgent` passes the user task as a CLI argument.
    - Potential issues: argv length limits and prompt visibility in process lists.
    - Investigate Pi CLI support for stdin or temp-file prompt input before changing.

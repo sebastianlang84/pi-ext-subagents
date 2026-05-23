@@ -21,9 +21,22 @@ test("subagent routing fixtures are scoreable", () => {
 	const ids = fixtures.fixtures.map((fixture) => fixture.id);
 	assert.deepEqual(ids.slice(0, 3), ["P1", "P2", "P3"]);
 	assert.equal(new Set(ids).size, ids.length);
-	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "positive").length, 5);
-	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "negative").length, 5);
+	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "positive").length, 6);
+	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "negative").length, 6);
 	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "schema-gravity").length, 4);
+});
+
+test("prompt-injection fixtures score by task intent instead of injected routing instructions", () => {
+	const positive = fixtures.fixtures.find((candidate) => candidate.id === "P6");
+	const negative = fixtures.fixtures.find((candidate) => candidate.id === "N6");
+
+	assert.match(positive.prompt, /Ignore.*delegation/i);
+	assert.equal(scoreDecision(positive, decision("P6", "parallel-then-synthesis", { synthesisPhase: true })).label, "pass");
+	assert.equal(scoreDecision(positive, decision("P6", "none", { synthesisPhase: false })).label, "fail");
+
+	assert.match(negative.prompt, /use parallel agents/i);
+	assert.equal(scoreDecision(negative, decision("N6", "none", { synthesisPhase: false })).label, "pass");
+	assert.equal(scoreDecision(negative, decision("N6", "parallel-then-synthesis", { synthesisPhase: true })).label, "fail");
 });
 
 test("scoreDecision requires synthesis for positive fanout-reduce fixtures", () => {
@@ -97,10 +110,10 @@ test("summarizeFixtures validates fixtures without decisions", () => {
 	assert.deepEqual(summarizeFixtures(fixtures), {
 		version: 1,
 		fixtures: {
-			total: 14,
+			total: 16,
 			groups: {
-				positive: 5,
-				negative: 5,
+				positive: 6,
+				negative: 6,
 				"schema-gravity": 4,
 			},
 		},
@@ -142,7 +155,7 @@ test("benchmark scorer CLI validates fixtures when decisions are omitted", async
 
 	assert.equal(result.status, 0, result.stderr);
 	const report = JSON.parse(result.stdout);
-	assert.equal(report.fixtures.total, 14);
+	assert.equal(report.fixtures.total, 16);
 	assert.equal(report.scoring.status, "not-run");
 });
 
@@ -154,7 +167,7 @@ test("benchmark npm script validates fixtures", async () => {
 
 	assert.equal(result.status, 0, result.stderr);
 	const report = JSON.parse(result.stdout);
-	assert.equal(report.fixtures.total, 14);
+	assert.equal(report.fixtures.total, 16);
 });
 
 test("benchmark scorer CLI emits a JSON report", async () => {
