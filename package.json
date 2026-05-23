@@ -21,7 +21,8 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "check:token-injection": "node scripts/check-token-injection.mjs",
-    "benchmark:subagent-routing": "node scripts/score-subagent-routing-benchmark.mjs --fixtures docs/benchmarks/subagent-routing-fixtures.json"
+    "benchmark:subagent-routing": "node scripts/score-subagent-routing-benchmark.mjs --fixtures docs/benchmarks/subagent-routing-fixtures.json",
+    "benchmark:reviewer-context-scout": "node scripts/score-reviewer-context-scout-benchmark.mjs --fixtures docs/benchmarks/reviewer-context-scout-fixtures.json"
   },
   "pi": {
     "extensions": [
