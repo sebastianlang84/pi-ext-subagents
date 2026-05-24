@@ -2,6 +2,41 @@
 
 Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git history, or release notes — not as checked-off TODO entries.
 
+## P1 (Review follow-ups)
+
+1. [ ] Mark interactive project-agent cancellation as a tool error.
+   - Finding: headless project-agent refusal returns `isError: true`, but an interactive user cancellation returns `Canceled: project-local agents not approved.` without `isError`.
+   - Impact: callers may treat "not executed" as a successful subagent result.
+   - Next: set `isError: true` for interactive cancellation and add/adjust coverage.
+
+2. [ ] Clarify or redesign top-level `cwd` and runtime controls for parallel/chain requests.
+   - Finding: the public schema exposes top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode`, but request normalization counts those as single-mode fields, so `{ cwd, tasks: [...] }` or top-level controls plus `chain` are rejected as mixed modes.
+   - Impact: schema-visible fields are easy to misuse for parallel/chain defaults.
+   - Next: either document/describe them as single-mode-only in prompt-facing schema text, or intentionally support them as defaults for parallel/chain items.
+
+3. [ ] Treat `stopReason: "timeout"` as failed in shared result classification.
+   - Finding: `classifyResult` currently special-cases `error` and `aborted` but not `timeout`; default `runSingleAgent` still returns non-zero on timeout, but injected/custom results with `exitCode: 0` and `stopReason: "timeout"` would classify as completed.
+   - Impact: inconsistent error semantics across API/display/test seams.
+   - Next: include `timeout` in failure classification and add a focused test.
+
+4. [ ] Add clearer agent-scope naming aliases and display labels.
+   - Decision: prefer `global`, `repo`, and `global+repo` terminology over `user`, `project`, and `both` for user-facing scope names.
+   - Compatibility: keep existing `user`, `project`, and `both` accepted as aliases (`user -> global`, `project -> repo`, `both -> global+repo`).
+   - Rationale: `global` describes `~/.pi/agent/agents`, `repo` describes repo-controlled `.pi/agents`, and `global+repo` is clearer than `both` while preserving the trust boundary.
+   - Next: update schema/display/docs/tests without breaking existing calls.
+
+## P2 (Packaging / release hygiene)
+
+1. [ ] Decide whether `.pi/agents` should remain in the package `files` allowlist.
+   - Finding: `package.json` includes `.pi/agents`, but `npm pack --dry-run` did not include such a path because it is absent in the repo.
+   - Impact: harmless packaging noise unless future project agents are intentionally shipped.
+   - Next: remove the allowlist entry or add a note if it is reserved intentionally.
+
+2. [ ] Decide whether wildcard Pi runtime dependencies should be pinned or left as Pi-compatible `*` ranges.
+   - Finding: runtime dependencies use `"*"` ranges for Pi packages.
+   - Impact: convenient for fast Pi compatibility, but weaker release reproducibility.
+   - Next: make an explicit release-policy decision before the next stable tag.
+
 ## P2 (User value / orchestration features)
 
 1. [ ] Explore optional fanout-then-reduce orchestration.
