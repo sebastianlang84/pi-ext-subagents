@@ -18,7 +18,7 @@ export interface ParallelResultSummary {
 }
 
 export function classifyResult(result: SingleResult): ResultSummaryStatus {
-	return result.exitCode === 0 && result.stopReason !== "error" && result.stopReason !== "aborted" ? "completed" : "failed";
+	return result.exitCode === 0 && result.stopReason !== "error" && result.stopReason !== "aborted" && result.stopReason !== "timeout" ? "completed" : "failed";
 }
 
 export function isSuccessfulResult(result: SingleResult): boolean {

@@ -14,12 +14,7 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Impact: schema-visible fields are easy to misuse for parallel/chain defaults.
    - Next: either document/describe them as single-mode-only in prompt-facing schema text, or intentionally support them as defaults for parallel/chain items.
 
-3. [ ] Treat `stopReason: "timeout"` as failed in shared result classification.
-   - Finding: `classifyResult` currently special-cases `error` and `aborted` but not `timeout`; default `runSingleAgent` still returns non-zero on timeout, but injected/custom results with `exitCode: 0` and `stopReason: "timeout"` would classify as completed.
-   - Impact: inconsistent error semantics across API/display/test seams.
-   - Next: include `timeout` in failure classification and add a focused test.
-
-4. [ ] Add clearer agent-scope naming aliases and display labels.
+3. [ ] Add clearer agent-scope naming aliases and display labels.
    - Decision: prefer `global`, `repo`, and `global+repo` terminology over `user`, `project`, and `both` for user-facing scope names.
    - Compatibility: keep existing `user`, `project`, and `both` accepted as aliases (`user -> global`, `project -> repo`, `both -> global+repo`).
    - Rationale: `global` describes `~/.pi/agent/agents`, `repo` describes repo-controlled `.pi/agents`, and `global+repo` is clearer than `both` while preserving the trust boundary.

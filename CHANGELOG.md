@@ -4,7 +4,7 @@
 
 SemVer impact: minor.
 
-- Centralize subagent result classification/diagnostics/parallel-summary policy and reuse it for API and display error semantics.
+- Centralize subagent result classification/diagnostics/parallel-summary policy and reuse it for API and display error semantics, including timeout stop reasons.
 - Show richer project-agent trust diagnostics in approval/headless failure paths, including model, tools, paths/realpaths, and mutation-tool warnings.
 - Document advanced subagent workflow recipes and troubleshooting guidance in the README.
 - Add an offline subagent-routing benchmark scorer, fixture set, and npm script for evaluating fanout-then-synthesis decisions without model/provider wiring.

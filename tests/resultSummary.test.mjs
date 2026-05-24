@@ -28,6 +28,16 @@ test("parallel result summary truncates previews through the policy seam", () =>
 	assert.match(summary.text, new RegExp(`\\[ok\\] completed: ${"x".repeat(100)}\\.\\.\\.`));
 });
 
+test("parallel result summary treats timeout stop reasons as failures", () => {
+	const summary = buildParallelResultSummary([
+		agentResult("timeout", "partial output", 0, { stopReason: "timeout", errorMessage: "deadline exceeded" }),
+	]);
+
+	assert.equal(summary.successCount, 0);
+	assert.equal(summary.isError, true);
+	assert.match(summary.text, /\[timeout\] failed: deadline exceeded/);
+});
+
 test("parallel result summary accepts custom classification and truncation policy", () => {
 	const summary = buildParallelResultSummary(
 		[agentResult("custom", "ignored", 1, { stderr: "stderr diagnostic" })],
