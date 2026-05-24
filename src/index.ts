@@ -18,10 +18,8 @@ import { type ExtensionAPI, getMarkdownTheme } from "@earendil-works/pi-coding-a
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { type AgentScope } from "./agents.js";
-import { createContextScoutTool, type ContextScoutDeps } from "./contextScout.js";
 import { buildResultDisplayModel, type DisplayItem, type DisplayTone } from "./display.js";
 import { executeSubagentRequest, type SubagentExecutionDeps } from "./execution.js";
-export { createContextScoutTool } from "./contextScout.js";
 export {
 	buildParallelResultSummary,
 	buildParallelToolResult,
@@ -139,7 +137,7 @@ const SubagentParams = Type.Object({
 type SubagentToolDefinition = Parameters<ExtensionAPI["registerTool"]>[0];
 
 type SubagentToolDeps = SubagentExecutionDeps;
-export type PiSubagentsToolDeps = SubagentExecutionDeps & ContextScoutDeps;
+export type PiSubagentsToolDeps = SubagentExecutionDeps;
 
 export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDefinition {
 	return {
@@ -281,10 +279,5 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 }
 
 export default function (pi: ExtensionAPI) {
-	const contextScoutCounter = { value: 0 };
-	pi.on("agent_start", () => {
-		contextScoutCounter.value = 0;
-	});
 	pi.registerTool(createSubagentTool());
-	pi.registerTool(createContextScoutTool({}, { callCounter: contextScoutCounter }));
 }

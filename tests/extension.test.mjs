@@ -10,7 +10,7 @@ const extensionModule = await jiti.import("../src/index.ts");
 const executionModule = await jiti.import("../src/execution.ts");
 const importedExtension = await jiti.import("../src/index.ts", { default: true });
 const extension = typeof importedExtension === "function" ? importedExtension : importedExtension.default;
-const { buildParallelToolResult, createContextScoutTool, createSubagentTool } = extensionModule;
+const { buildParallelToolResult, createSubagentTool } = extensionModule;
 const { executeSubagentPlan } = executionModule;
 
 function registerExtension(deps) {
@@ -141,128 +141,13 @@ test("parallel summaries prefer failure diagnostics over partial assistant outpu
 	assert.doesNotMatch(result.content[0].text, /misleading partial assistant text/);
 });
 
-test("extension loads and registers subagent and context_scout tools", () => {
+test("extension loads and registers only the subagent tool", () => {
 	const tools = registerTools();
-	assert.deepEqual(tools.map((tool) => tool.name), ["subagent", "context_scout"]);
+	assert.deepEqual(tools.map((tool) => tool.name), ["subagent"]);
 	for (const tool of tools) {
 		assert.equal(typeof tool.execute, "function");
 		assert.ok(tool.parameters);
 	}
-});
-
-test("context_scout runs fixed scout with read-only tool allowlist", async () => {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-context-scout-"));
-	const calls = [];
-	const tool = createContextScoutTool({
-		discoverAgents: () => ({
-			agents: [{
-				name: "scout",
-				description: "Scout",
-				source: "user",
-				filePath: "scout.md",
-				systemPrompt: "Scout prompt",
-				tools: ["read", "bash", "codemap_status", "codemap_search", "codemap_context"],
-			}],
-			projectAgentsDir: null,
-			invalidAgents: [],
-		}),
-		runSingleAgent: async (options) => {
-			calls.push(options);
-			return agentResult("scout", "## Evidence\n- src/index.ts:1-3 — relevant", 0, { agentSource: "user", task: options.task });
-		},
-	});
-
-	const result = await tool.execute("id", { question: "Which files define the tool?", scope: "src" }, undefined, undefined, testCtx(root));
-
-	assert.equal(result.isError, undefined);
-	assert.match(result.content[0].text, /src\/index\.ts:1-3/);
-	assert.equal(calls.length, 1);
-	assert.equal(calls[0].agentName, "scout");
-	assert.equal(calls[0].agents[0].name, "scout");
-	assert.deepEqual(calls[0].agents[0].tools, ["read", "codemap_status", "codemap_search"]);
-	assert.match(calls[0].task, /Do not make final review findings/);
-});
-
-test("context_scout enforces query and file budgets from scout tool calls", async () => {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-context-scout-budget-"));
-	const tool = createContextScoutTool({
-		discoverAgents: () => ({
-			agents: [{ name: "scout", description: "Scout", source: "user", filePath: "scout.md", systemPrompt: "", tools: ["read", "codemap_search"] }],
-			projectAgentsDir: null,
-			invalidAgents: [],
-		}),
-		runSingleAgent: async () => agentResult("scout", undefined, 0, {
-			messages: [{
-				role: "assistant",
-				content: [
-					{ type: "toolCall", name: "codemap_search", arguments: { query: "one" } },
-					{ type: "toolCall", name: "codemap_search", arguments: { query: "two" } },
-					{ type: "toolCall", name: "read", arguments: { path: "a.ts" } },
-					{ type: "toolCall", name: "read", arguments: { path: "b.ts" } },
-					{ type: "text", text: "evidence" },
-				],
-			}],
-		}),
-	});
-
-	const queryExceeded = await tool.execute("id-1", { question: "q", budget: { maxQueries: 1, maxFiles: 2 } }, undefined, undefined, testCtx(root));
-	const fileExceeded = await tool.execute("id-2", { question: "q", budget: { maxQueries: 2, maxFiles: 1 } }, undefined, undefined, testCtx(root));
-
-	assert.equal(queryExceeded.isError, true);
-	assert.match(queryExceeded.content[0].text, /query budget exceeded/);
-	assert.deepEqual(queryExceeded.details.budgetUsage, { queries: 2, files: ["a.ts", "b.ts"] });
-	assert.equal(fileExceeded.isError, true);
-	assert.match(fileExceeded.content[0].text, /file budget exceeded/);
-});
-
-test("context_scout enforces call cap and output cap", async () => {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-context-scout-cap-"));
-	const tool = createContextScoutTool({
-		discoverAgents: () => ({
-			agents: [{ name: "scout", description: "Scout", source: "user", filePath: "scout.md", systemPrompt: "", tools: ["read"] }],
-			projectAgentsDir: null,
-			invalidAgents: [],
-		}),
-		runSingleAgent: async () => agentResult("scout", "x".repeat(500), 0),
-	}, { maxCalls: 2 });
-
-	const first = await tool.execute("id-1", { question: "q", budget: { maxOutputChars: 200 } }, undefined, undefined, testCtx(root));
-	const second = await tool.execute("id-2", { question: "q" }, undefined, undefined, testCtx(root));
-	const third = await tool.execute("id-3", { question: "q" }, undefined, undefined, testCtx(root));
-
-	assert.equal(first.details.outputTruncated, true);
-	assert.ok(first.content[0].text.length <= 200 + 1);
-	assert.equal(second.isError, undefined);
-	assert.equal(third.isError, true);
-	assert.match(third.content[0].text, /call cap exceeded/);
-});
-
-test("context_scout fails closed when scout is missing or unsafe", async () => {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-context-scout-safe-"));
-	const missing = createContextScoutTool({
-		discoverAgents: () => ({ agents: [], projectAgentsDir: null, invalidAgents: [] }),
-		runSingleAgent: async () => assert.fail("must not run"),
-	});
-	const unsafe = createContextScoutTool({
-		discoverAgents: () => ({
-			agents: [{ name: "scout", description: "Scout", source: "user", filePath: "scout.md", systemPrompt: "", tools: ["read", "subagent"] }],
-			projectAgentsDir: null,
-			invalidAgents: [],
-		}),
-		runSingleAgent: async () => assert.fail("must not run"),
-	});
-	const implicitTools = createContextScoutTool({
-		discoverAgents: () => ({
-			agents: [{ name: "scout", description: "Scout", source: "user", filePath: "scout.md", systemPrompt: "" }],
-			projectAgentsDir: null,
-			invalidAgents: [],
-		}),
-		runSingleAgent: async () => assert.fail("must not run"),
-	});
-
-	assert.match((await missing.execute("id", { question: "q" }, undefined, undefined, testCtx(root))).content[0].text, /not found/);
-	assert.match((await unsafe.execute("id", { question: "q" }, undefined, undefined, testCtx(root))).content[0].text, /forbidden tools/);
-	assert.match((await implicitTools.execute("id", { question: "q" }, undefined, undefined, testCtx(root))).content[0].text, /explicit tools/);
 });
 
 test("package manifest pi.extensions points to the source entrypoint", () => {
