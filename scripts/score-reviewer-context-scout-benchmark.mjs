@@ -8,7 +8,7 @@ const DEFAULT_REVIEWER_AGENT_PATH = `${process.env.HOME ?? ""}/.pi/agent/agents/
 const DEFAULT_SCOUT_AGENT_PATH = `${process.env.HOME ?? ""}/.pi/agent/agents/scout.md`;
 const VALID_GROUPS = new Set(["positive", "negative", "adversarial"]);
 const ALLOWED_SCOUT_AGENT = "scout";
-const REVIEWER_FORBIDDEN_TOOLS = new Set(["edit", "write"]);
+const REVIEWER_FORBIDDEN_TOOLS = new Set(["bash", "edit", "write"]);
 const SCOUT_FORBIDDEN_TOOLS = new Set(["subagent", "edit", "write"]);
 const MAX_EVIDENCE_REF_SPAN_LINES = 80;
 

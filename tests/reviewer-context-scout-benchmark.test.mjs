@@ -235,7 +235,7 @@ test("prompt-only preflight passes scoped reviewer and scout tools", () => {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
 	const reviewerPath = path.join(tmp, "reviewer.md");
 	const scoutPath = path.join(tmp, "scout.md");
-	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash, subagent");
+	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, subagent");
 	writeAgent(scoutPath, "name: scout\ndescription: Scout\ntools: read, bash");
 
 	const report = buildPromptOnlyPreflightReport({ reviewerAgentPath: reviewerPath, scoutAgentPath: scoutPath });
@@ -244,12 +244,25 @@ test("prompt-only preflight passes scoped reviewer and scout tools", () => {
 	assert.deepEqual(report.preflight.issues, []);
 });
 
+test("prompt-only preflight rejects reviewer bash access", () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const reviewerPath = path.join(tmp, "reviewer.md");
+	const scoutPath = path.join(tmp, "scout.md");
+	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash, subagent");
+	writeAgent(scoutPath, "name: scout\ndescription: Scout\ntools: read");
+
+	const report = buildPromptOnlyPreflightReport({ reviewerAgentPath: reviewerPath, scoutAgentPath: scoutPath });
+
+	assert.equal(report.preflight.status, "fail");
+	assert.ok(report.preflight.issues.some((issue) => issue.role === "reviewer" && issue.metric === "forbiddenTool" && issue.expected === "no bash"));
+});
+
 test("prompt-only preflight rejects non-scout scout agent and YAML-list tools", () => {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
 	const reviewerPath = path.join(tmp, "reviewer.md");
 	const wrongScoutPath = path.join(tmp, "wrong-scout.md");
 	const listScoutPath = path.join(tmp, "list-scout.md");
-	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash, subagent");
+	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, subagent");
 	writeAgent(wrongScoutPath, "name: worker\ndescription: Wrong scout\ntools: read, bash");
 	writeAgent(listScoutPath, "name: scout\ndescription: Bad tools\ntools:\n  - read\n  - bash");
 

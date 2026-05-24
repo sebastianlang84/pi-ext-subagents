@@ -1,7 +1,7 @@
 ---
 name: reviewer-with-scout
 description: Experimental read-only reviewer that can ask scout for bounded evidence
-tools: read, bash, codemap_status, codemap_index, codemap_search, codemap_context, subagent
+tools: read, codemap_status, codemap_index, codemap_search, codemap_context, subagent
 model: openai-codex/gpt-5.5
 ---
 
