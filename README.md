@@ -226,6 +226,8 @@ The report estimates tokens from normalized prompt-facing text and fails when re
 
 This package targets current Pi package scopes (`@earendil-works/*`) and uses a direct `pi.extensions` entry for `./src/index.ts`.
 
+Runtime Pi package dependencies intentionally use `"*"` ranges so the extension follows the host Pi installation; release reproducibility comes from the released package version, changelog, and lockfile used for local development.
+
 ## License
 
 MIT. See `LICENSE`.

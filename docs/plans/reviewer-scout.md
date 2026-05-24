@@ -67,24 +67,24 @@ Desired scout output shape:
 
 ## Evaluation
 
-Benchmark fixtures live in `docs/benchmarks/reviewer-context-scout-fixtures.json`; the offline scorer is `scripts/score-reviewer-context-scout-benchmark.mjs`.
+Benchmark fixtures live in `docs/benchmarks/reviewer-scout-fixtures.json`; the offline scorer is `scripts/score-reviewer-scout-benchmark.mjs`.
 
 Run fixture validation:
 
 ```bash
-npm --silent run benchmark:reviewer-context-scout
+npm --silent run benchmark:reviewer-scout
 ```
 
 Run prompt-only agent preflight before collecting decisions:
 
 ```bash
-node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --threshold-gate
+node scripts/score-reviewer-scout-benchmark.mjs --agent-preflight --threshold-gate
 ```
 
 The default `reviewer` may fail this gate if it does not expose `subagent`. For bounded prompt-only trials, pass an explicit reviewer agent file that can call `subagent` but cannot call `bash`, `edit`, or `write`:
 
 ```bash
-node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --reviewer-agent path/to/reviewer.md --scout-agent ~/.pi/agent/agents/scout.md --threshold-gate
+node scripts/score-reviewer-scout-benchmark.mjs --agent-preflight --reviewer-agent path/to/reviewer.md --scout-agent ~/.pi/agent/agents/scout.md --threshold-gate
 ```
 
 The preflight must pass before treating reviewer→scout prompt-only decisions as runnable. It checks that the reviewer can call `subagent`, that the reviewer cannot call `bash`, `edit`, or `write`, and that the scout cannot call `subagent`, `edit`, or `write`.
@@ -92,13 +92,13 @@ The preflight must pass before treating reviewer→scout prompt-only decisions a
 Run a scored decisions report:
 
 ```bash
-npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisions.json --threshold-gate
+npm --silent run benchmark:reviewer-scout -- --decisions path/to/decisions.json --threshold-gate
 ```
 
 Current decision logs:
 
-1. No scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses seeded positive evidence while passing tiny/adversarial cases.
-2. Normal subagent scout flow: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes the current scoring gate without a wrapper tool.
+1. No scout baseline: `docs/benchmarks/reviewer-scout-no-scout-decisions.json` intentionally misses seeded positive evidence while passing tiny/adversarial cases.
+2. Normal subagent scout flow: `docs/benchmarks/reviewer-scout-prompt-only-decisions.json` passes the current scoring gate without a wrapper tool.
 
 The former wrapper trial was removed from the active benchmark suite because `context_scout` is not the product direction.
 
@@ -131,9 +131,9 @@ Implemented:
 - Routed reviewer evidence tests/docs through normal `subagent` calls instead of a special reviewer wrapper agent.
 - Removed wrapper benchmark artifacts from active gates; normal subagent scout evidence is the measured product path.
 - Kept generic subagent runtime controls unchanged because the normal reviewer→scout benchmark passes without another tool or new schema.
+- Renamed benchmark files, npm script, and scorer to `reviewer-scout` terminology.
 
 ## Open questions
 
 - Should generic `subagent` get optional allowlist/call-budget controls, or are agent prompts plus benchmark gates enough?
-- Should the benchmark/script names keep `context-scout` for history, or be renamed to `reviewer-scout` in a later cleanup?
 - How should scout evidence be normalized without adding too much schema/token surface?

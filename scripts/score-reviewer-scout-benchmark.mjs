@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
-const DEFAULT_FIXTURES_PATH = "docs/benchmarks/reviewer-context-scout-fixtures.json";
+const DEFAULT_FIXTURES_PATH = "docs/benchmarks/reviewer-scout-fixtures.json";
 const DEFAULT_REVIEWER_AGENT_PATH = `${process.env.HOME ?? ""}/.pi/agent/agents/reviewer.md`;
 const DEFAULT_SCOUT_AGENT_PATH = `${process.env.HOME ?? ""}/.pi/agent/agents/scout.md`;
 const VALID_GROUPS = new Set(["positive", "negative", "adversarial"]);
@@ -446,8 +446,8 @@ function parseArgs(args) {
 
 function usage() {
 	return [
-		"Usage: score-reviewer-context-scout-benchmark.mjs [--fixtures fixtures.json] [--decisions decisions.json] [--threshold-gate]",
-		"       score-reviewer-context-scout-benchmark.mjs --agent-preflight [--reviewer-agent reviewer.md] [--scout-agent scout.md] [--threshold-gate]",
+		"Usage: score-reviewer-scout-benchmark.mjs [--fixtures fixtures.json] [--decisions decisions.json] [--threshold-gate]",
+		"       score-reviewer-scout-benchmark.mjs --agent-preflight [--reviewer-agent reviewer.md] [--scout-agent scout.md] [--threshold-gate]",
 		"",
 		"Without --decisions, the command validates fixtures and prints a fixture summary.",
 		"With --agent-preflight, the command checks whether prompt-only reviewer→scout trials are runnable.",

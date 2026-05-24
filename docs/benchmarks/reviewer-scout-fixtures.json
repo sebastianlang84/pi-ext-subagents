@@ -28,7 +28,7 @@
       "expectedScoutUse": true,
       "requiredEvidence": ["api-contract", "call-sites"],
       "requiredEvidenceRefs": [
-        { "kind": "api-contract", "path": "docs/plans/reviewer-context-scout.md", "startLine": 7, "endLine": 25 },
+        { "kind": "api-contract", "path": "docs/plans/reviewer-scout.md", "startLine": 7, "endLine": 25 },
         { "kind": "call-sites", "path": "package.json", "startLine": 22, "endLine": 26 }
       ],
       "maxScoutCalls": 2,
@@ -41,8 +41,8 @@
       "expectedScoutUse": true,
       "requiredEvidence": ["tests", "conventions"],
       "requiredEvidenceRefs": [
-        { "kind": "tests", "path": "tests/reviewer-context-scout-benchmark.test.mjs", "startLine": 178, "endLine": 195 },
-        { "kind": "conventions", "path": "docs/plans/reviewer-context-scout.md", "startLine": 27, "endLine": 49 }
+        { "kind": "tests", "path": "tests/reviewer-scout-benchmark.test.mjs", "startLine": 178, "endLine": 195 },
+        { "kind": "conventions", "path": "docs/plans/reviewer-scout.md", "startLine": 27, "endLine": 49 }
       ],
       "maxScoutCalls": 2,
       "notes": "Reviewer should ask for tests and local convention evidence."
@@ -54,7 +54,7 @@
       "expectedScoutUse": true,
       "requiredEvidence": ["scope"],
       "requiredEvidenceRefs": [
-        { "kind": "scope", "path": "docs/plans/reviewer-context-scout.md", "startLine": 68, "endLine": 96 }
+        { "kind": "scope", "path": "docs/plans/reviewer-scout.md", "startLine": 68, "endLine": 96 }
       ],
       "maxScoutCalls": 2,
       "notes": "Reviewer should bound exploration through evidence-only scouting."

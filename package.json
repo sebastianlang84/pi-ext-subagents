@@ -1,6 +1,6 @@
 {
   "name": "pi-subagents",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Pi extension for delegating work to isolated subagents.",
   "keywords": [
     "pi-package",
@@ -14,7 +14,6 @@
     "src",
     "scripts",
     "docs",
-    ".pi/agents",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -24,7 +23,7 @@
     "check:token-injection": "node scripts/check-token-injection.mjs",
     "benchmark:subagent-routing": "node scripts/score-subagent-routing-benchmark.mjs --fixtures docs/benchmarks/subagent-routing-fixtures.json",
     "benchmark:subagent-routing:run": "node scripts/run-subagent-routing-benchmark.mjs --fixtures docs/benchmarks/subagent-routing-fixtures.json",
-    "benchmark:reviewer-context-scout": "node scripts/score-reviewer-context-scout-benchmark.mjs --fixtures docs/benchmarks/reviewer-context-scout-fixtures.json"
+    "benchmark:reviewer-scout": "node scripts/score-reviewer-scout-benchmark.mjs --fixtures docs/benchmarks/reviewer-scout-fixtures.json"
   },
   "pi": {
     "extensions": [

@@ -4,11 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { buildPromptOnlyPreflightReport, loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-reviewer-context-scout-benchmark.mjs";
+import { buildPromptOnlyPreflightReport, loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "../scripts/score-reviewer-scout-benchmark.mjs";
 
-const fixtures = loadJsonFile("docs/benchmarks/reviewer-context-scout-fixtures.json");
-const noScoutDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-no-scout-decisions.json");
-const promptOnlyDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json");
+const fixtures = loadJsonFile("docs/benchmarks/reviewer-scout-fixtures.json");
+const noScoutDecisions = loadJsonFile("docs/benchmarks/reviewer-scout-no-scout-decisions.json");
+const promptOnlyDecisions = loadJsonFile("docs/benchmarks/reviewer-scout-prompt-only-decisions.json");
 
 function decision(fixtureId, overrides = {}) {
 	return { fixtureId, scoutCalls: 0, evidenceKinds: [], outputChars: 0, ...overrides };
@@ -30,7 +30,7 @@ function writeAgent(filePath, frontmatter) {
 	fs.writeFileSync(filePath, `---\n${frontmatter}\n---\n\nAgent body.\n`);
 }
 
-test("reviewer context scout fixtures are summarizable without decisions", () => {
+test("reviewer scout fixtures are summarizable without decisions", () => {
 	assert.deepEqual(summarizeFixtures(fixtures), {
 		version: 1,
 		fixtures: {
@@ -48,7 +48,7 @@ test("reviewer context scout fixtures are summarizable without decisions", () =>
 	});
 });
 
-test("reviewer context scout fixtures cover intended groups", () => {
+test("reviewer scout fixtures cover intended groups", () => {
 	const ids = fixtures.fixtures.map((fixture) => fixture.id);
 	assert.deepEqual(ids, ["N1", "P1", "P2", "P3", "A1"]);
 	assert.equal(new Set(ids).size, ids.length);
@@ -219,7 +219,7 @@ test("scoreBenchmark rejects unknown fixture references", () => {
 });
 
 test("prompt-only preflight fails when reviewer lacks subagent", () => {
-	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-scout-preflight-"));
 	const reviewerPath = path.join(tmp, "reviewer.md");
 	const scoutPath = path.join(tmp, "scout.md");
 	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash");
@@ -232,7 +232,7 @@ test("prompt-only preflight fails when reviewer lacks subagent", () => {
 });
 
 test("prompt-only preflight passes scoped reviewer and scout tools", () => {
-	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-scout-preflight-"));
 	const reviewerPath = path.join(tmp, "reviewer.md");
 	const scoutPath = path.join(tmp, "scout.md");
 	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, subagent");
@@ -245,7 +245,7 @@ test("prompt-only preflight passes scoped reviewer and scout tools", () => {
 });
 
 test("prompt-only preflight rejects reviewer bash access", () => {
-	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-scout-preflight-"));
 	const reviewerPath = path.join(tmp, "reviewer.md");
 	const scoutPath = path.join(tmp, "scout.md");
 	writeAgent(reviewerPath, "name: reviewer\ndescription: Reviewer\ntools: read, bash, subagent");
@@ -258,7 +258,7 @@ test("prompt-only preflight rejects reviewer bash access", () => {
 });
 
 test("prompt-only preflight rejects non-scout scout agent and YAML-list tools", () => {
-	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-preflight-"));
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-scout-preflight-"));
 	const reviewerPath = path.join(tmp, "reviewer.md");
 	const wrongScoutPath = path.join(tmp, "wrong-scout.md");
 	const listScoutPath = path.join(tmp, "list-scout.md");
@@ -282,7 +282,7 @@ test("scoreBenchmark rejects overbroad evidence refs", () => {
 				scoutCalls: 1,
 				subagentCalls: [{ agent: "scout" }],
 				evidenceKinds: ["api-contract", "call-sites"],
-				evidenceRefs: [{ kind: "api-contract", path: "docs/plans/reviewer-context-scout.md", startLine: 1, endLine: 200 }],
+				evidenceRefs: [{ kind: "api-contract", path: "docs/plans/reviewer-scout.md", startLine: 1, endLine: 200 }],
 				evidenceSeparated: true,
 			});
 			return allPassingDecision(fixture);
@@ -305,9 +305,9 @@ test("scoreBenchmark requires scout call logs to match scoutCalls", () => {
 	}), /subagentCalls length must match scoutCalls/);
 });
 
-test("reviewer context scout benchmark CLI validates fixtures when decisions are omitted", async () => {
+test("reviewer scout benchmark CLI validates fixtures when decisions are omitted", async () => {
 	const { spawnSync } = await import("node:child_process");
-	const result = spawnSync(process.execPath, ["scripts/score-reviewer-context-scout-benchmark.mjs"], {
+	const result = spawnSync(process.execPath, ["scripts/score-reviewer-scout-benchmark.mjs"], {
 		encoding: "utf8",
 	});
 
@@ -317,13 +317,13 @@ test("reviewer context scout benchmark CLI validates fixtures when decisions are
 	assert.equal(report.scoring.status, "not-run");
 });
 
-test("reviewer context scout benchmark CLI emits a JSON report", async () => {
-	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-context-scout-benchmark-"));
+test("reviewer scout benchmark CLI emits a JSON report", async () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "reviewer-scout-benchmark-"));
 	const decisionsPath = path.join(tmp, "decisions.json");
 	fs.writeFileSync(decisionsPath, JSON.stringify({ runs: [{ condition: "prompt-only", decisions: fixtures.fixtures.map(allPassingDecision) }] }));
 
 	const { spawnSync } = await import("node:child_process");
-	const result = spawnSync(process.execPath, ["scripts/score-reviewer-context-scout-benchmark.mjs", "--decisions", decisionsPath, "--threshold-gate"], {
+	const result = spawnSync(process.execPath, ["scripts/score-reviewer-scout-benchmark.mjs", "--decisions", decisionsPath, "--threshold-gate"], {
 		encoding: "utf8",
 	});
 

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.3.2 - 2026-05-24
+
+SemVer impact: patch.
+
+- Remove the absent `.pi/agents` package allowlist entry and document the intentional Pi dependency range policy.
+- Rename reviewer-scout benchmark files, scorer, docs, and npm script from `reviewer-context-scout` to `reviewer-scout` terminology.
+
 ## 1.3.1 - 2026-05-24
 
 SemVer impact: patch.
