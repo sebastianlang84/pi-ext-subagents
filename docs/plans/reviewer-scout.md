@@ -130,10 +130,11 @@ Implemented:
 - Removed `context_scout` from the public tool surface and deleted the wrapper implementation.
 - Routed reviewer evidence tests/docs through normal `subagent` calls instead of a special reviewer wrapper agent.
 - Removed wrapper benchmark artifacts from active gates; normal subagent scout evidence is the measured product path.
-- Kept generic subagent runtime controls unchanged because the normal reviewer→scout benchmark passes without another tool or new schema.
+- Kept reviewer-scout on normal subagent flow instead of adding a wrapper tool.
+- Added generic top-level `maxCalls` so a subagent request can reject `tasks[]` or `chain[]` fanout beyond a caller-specified budget.
 - Renamed benchmark files, npm script, and scorer to `reviewer-scout` terminology.
 
 ## Open questions
 
-- Should generic `subagent` get optional allowlist/call-budget controls, or are agent prompts plus benchmark gates enough?
+- `maxCalls` now covers per-request call budgets, but there is still no conversation-wide quota or role allowlist.
 - How should scout evidence be normalized without adding too much schema/token surface?

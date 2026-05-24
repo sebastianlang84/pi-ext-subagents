@@ -40,6 +40,13 @@ test("normalizes optional per-task runtime controls", () => {
 	assert.deepEqual(normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "full" }] }).steps[0].outputMode, "full");
 });
 
+test("enforces optional top-level subagent call budgets", () => {
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", maxCalls: 1 }).steps.length, 1);
+	assert.equal(normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x" }, { agent: "b", task: "y" }], maxCalls: 2 }).steps.length, 2);
+	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x" }, { agent: "b", task: "y" }], maxCalls: 1 }), /exceeding maxCalls 1/);
+	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x" }, { agent: "b", task: "y" }], maxCalls: 1 }), /exceeding maxCalls 1/);
+});
+
 test("applies top-level cwd and runtime controls as parallel and chain defaults", () => {
 	assert.deepEqual(
 		normalizeSubagentRequest({
@@ -95,6 +102,7 @@ test("rejects invalid runtime controls", () => {
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", timeoutMs: 2_147_483_648 }), /single\.timeoutMs/);
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", maxOutputChars: -1 }), /single\.maxOutputChars/);
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", outputMode: "verbose" }), /single\.outputMode/);
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", maxCalls: 0 }), /maxCalls/);
 	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 1.5 }] }), /tasks\[0\]\.timeoutMs/);
 	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "verbose" }] }), /chain\[0\]\.outputMode/);
 	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x" }], timeoutMs: 0 }), /defaults\.timeoutMs/);

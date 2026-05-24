@@ -22,5 +22,5 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Wrapper-specific product code/docs were removed; normal `subagent` → `scout` is the measured product path.
    - Benchmark/script names now use `reviewer-scout`.
    - Follow-ups to discuss:
-     - Budget enforcement is currently benchmark/prompt-level for normal subagent scout flow; decide from evidence whether generic runtime controls are needed.
+     - Per-request budget enforcement now exists via top-level `maxCalls`; decide from evidence whether conversation-wide quotas or role allowlists are needed.
      - Scout output is currently raw text; consider validating/normalizing structured evidence refs, gaps, and confidence.

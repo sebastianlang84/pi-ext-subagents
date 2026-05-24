@@ -128,6 +128,7 @@ const SubagentParams = Type.Object({
 	task: Type.Optional(Type.String()),
 	tasks: Type.Optional(Type.Array(TaskItem)),
 	chain: Type.Optional(Type.Array(ChainItem)),
+	maxCalls: Type.Optional(Type.Integer()),
 	agentScope: Type.Optional(AgentScopeSchema),
 	confirmProjectAgents: Type.Optional(
 		Type.Boolean({ description: "Confirm repo agents; default true.", default: true }),
@@ -148,8 +149,8 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 		description: "Run isolated Pi subagents.",
 		promptSnippet: "Run subagents.",
 		promptGuidelines: [
-			"Scoped non-tiny delegation; parallel=independent, chain=handoffs; main owns judgment.",
-			"Use configured agent names, not generic general; examples if available: scout/reviewer/worker/planner/oracle.",
+			"Non-tiny scoped delegation; parallel=independent; chain=handoffs; main owns judgment.",
+			"Use configured agent names, not generic general; examples: scout/reviewer/worker/planner/oracle.",
 		],
 		parameters: SubagentParams,
 

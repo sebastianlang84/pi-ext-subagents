@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.4.0 - 2026-05-25
+
+SemVer impact: minor.
+
+- Add top-level `maxCalls` to bound subagent requests before spawning single, parallel, or chain runs.
+
 ## 1.3.4 - 2026-05-24
 
 SemVer impact: patch.

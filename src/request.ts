@@ -24,6 +24,7 @@ export interface SubagentParams extends RuntimeControls {
 	task?: string;
 	tasks?: RequestTask[];
 	chain?: RequestTask[];
+	maxCalls?: number;
 	agentScope?: AgentScopeInput;
 	confirmProjectAgents?: boolean;
 	cwd?: string;
@@ -86,6 +87,13 @@ function validateRuntimeControls(item: RuntimeControls, label: string): RuntimeC
 	return controls;
 }
 
+function validateMaxCalls(value: unknown, actualCalls: number): void {
+	const maxCalls = validatePositiveInteger(value, "maxCalls");
+	if (maxCalls !== undefined && actualCalls > maxCalls) {
+		throw new RequestValidationError(`Request would run ${actualCalls} subagent calls, exceeding maxCalls ${maxCalls}.`);
+	}
+}
+
 function validateCwd(value: unknown, label: string): string | undefined {
 	if (!fieldProvided(value)) return undefined;
 	if (!hasNonEmptyString(value)) {
@@ -136,6 +144,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 	}
 
 	if (hasSingleFields) {
+		validateMaxCalls(params.maxCalls, 1);
 		return {
 			mode: "single",
 			agentScope,
@@ -152,6 +161,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 		if (params.tasks.length > MAX_PARALLEL_TASKS) {
 			throw new RequestValidationError(`Too many parallel tasks (${params.tasks.length}). Max is ${MAX_PARALLEL_TASKS}.`);
 		}
+		validateMaxCalls(params.maxCalls, params.tasks.length);
 		return {
 			mode: "parallel",
 			agentScope,
@@ -162,6 +172,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 
 	if (!Array.isArray(params.chain)) throw new RequestValidationError("chain must be an array.");
 	if (params.chain.length === 0) throw new RequestValidationError("chain must contain at least one step.");
+	validateMaxCalls(params.maxCalls, params.chain.length);
 	return {
 		mode: "chain",
 		agentScope,

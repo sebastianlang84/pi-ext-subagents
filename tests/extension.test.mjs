@@ -161,7 +161,7 @@ test("tool prompt guidance discourages invented generic agents", () => {
 	const guidance = tool.promptGuidelines.join("\n");
 	assert.match(guidance, /Use configured agent names/);
 	assert.match(guidance, /not generic general/);
-	assert.match(guidance, /examples if available/);
+	assert.match(guidance, /examples/);
 	for (const role of ["scout", "reviewer", "worker", "planner", "oracle"]) {
 		assert.match(guidance, new RegExp(role));
 	}

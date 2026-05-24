@@ -73,7 +73,7 @@ Run a chain; `{previous}` is replaced with the previous step's final output:
 
 ## Runtime controls
 
-Each single task, parallel task, or chain step can opt into runtime controls:
+Each single task, parallel task, or chain step can opt into runtime controls. The top-level request can also cap total calls:
 
 ```json
 {
@@ -81,15 +81,17 @@ Each single task, parallel task, or chain step can opt into runtime controls:
   "task": "Review the diff briefly.",
   "timeoutMs": 30000,
   "maxOutputChars": 2000,
-  "outputMode": "summary"
+  "outputMode": "summary",
+  "maxCalls": 1
 }
 ```
 
 - `timeoutMs` fails the step as a timeout and terminates the child process if it exceeds the deadline.
 - `maxOutputChars` bounds returned tool-result text for that step.
 - `outputMode: "summary"` returns a status/preview; `"full"` returns the step output subject to any cap. Parallel mode remains summarized by default unless a task asks for `"full"`.
+- `maxCalls` is top-level only; it rejects a request whose single, `tasks[]`, or `chain[]` mode would exceed the call budget.
 
-For parallel and chain modes, top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode` act as defaults for every item in `tasks[]` or `chain[]`; per-item fields override those defaults. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
+For parallel and chain modes, top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode` act as defaults for every item in `tasks[]` or `chain[]`; per-item fields override those defaults. `maxCalls` stays request-level. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
 
 ## Reviewer scout evidence
 
