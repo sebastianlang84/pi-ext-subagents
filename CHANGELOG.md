@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.2.1 - 2026-05-24
+
+SemVer impact: patch.
+
+- Mark interactive project-agent cancellation as a tool error.
+
 ## 1.2.0 - 2026-05-24
 
 SemVer impact: minor.

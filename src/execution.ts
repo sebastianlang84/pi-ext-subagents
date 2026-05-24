@@ -225,6 +225,7 @@ export async function executeSubagentPlan(
 			return {
 				content: [{ type: "text", text: "Canceled: project-local agents not approved." }],
 				details: makeDetails(plan.mode)([]),
+				isError: true,
 			};
 		}
 	}

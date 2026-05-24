@@ -472,5 +472,6 @@ test("interactive project-local confirmation can cancel before execution", async
 	assert.match(promptMessage, /Project agent details:/);
 	assert.match(promptMessage, /danger: model=\(default\); tools=read, write; file=/);
 	assert.match(result.content[0].text, /not approved/);
+	assert.equal(result.isError, true);
 	assert.equal(result.details.results.length, 0);
 });
