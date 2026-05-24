@@ -89,6 +89,10 @@ function formatStepDiagnostic(result: SingleResult, step: ExecutionStep): string
 	return truncateOutput(getFailureDiagnostic(result).trim(), step.maxOutputChars);
 }
 
+function formatChainHandoffOutput(result: SingleResult, step: ExecutionStep): string {
+	return truncateOutput(getFinalOutput(result.messages), step.maxOutputChars);
+}
+
 function buildParallelPolicy(results: SingleResult[], steps: ExecutionStep[]) {
 	const controlsByResult = new Map(results.map((result, index) => [result, steps[index]]));
 	const stepFor = (result: SingleResult) => controlsByResult.get(result);
@@ -269,7 +273,7 @@ export async function executeSubagentPlan(
 					isError: true,
 				};
 			}
-			previousOutput = step.maxOutputChars !== undefined || step.outputMode !== undefined ? formatStepOutput(result, step, "full") : getFinalOutput(result.messages);
+			previousOutput = formatChainHandoffOutput(result, step);
 		}
 		const finalOutput = formatStepOutput(results[results.length - 1], plan.steps[plan.steps.length - 1], "full") || "(no output)";
 		return {

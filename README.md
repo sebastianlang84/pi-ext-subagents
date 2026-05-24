@@ -89,7 +89,7 @@ Each single task, parallel task, or chain step can opt into runtime controls:
 - `maxOutputChars` bounds returned tool-result text for that step.
 - `outputMode: "summary"` returns a status/preview; `"full"` returns the step output subject to any cap. Parallel mode remains summarized by default unless a task asks for `"full"`.
 
-For parallel and chain modes, put these fields on each item in `tasks[]` or `chain[]`.
+For parallel and chain modes, put these fields on each item in `tasks[]` or `chain[]`. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
 
 ## Reviewer scout evidence
 

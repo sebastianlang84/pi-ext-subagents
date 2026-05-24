@@ -369,6 +369,34 @@ test("chain mode uses bounded prior output for handoff when controls are set", a
 	assert.equal(calls[1].task, "second out...");
 });
 
+test("chain handoff ignores summary formatting and only caps raw prior output", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-chain-summary-"));
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{
+			agentScope: "project",
+			confirmProjectAgents: false,
+			chain: [
+				{ agent: "runner", task: "first", outputMode: "summary" },
+				{ agent: "runner", task: "second {previous}", outputMode: "summary", maxOutputChars: 40 },
+			],
+		},
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.equal(calls[1].task, "second output:first");
+	assert.equal(result.content[0].text, "[runner] completed: output:second output:first");
+});
+
 test("project-agent discovery uses context cwd, not the requested execution cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-discovery-"));
 	const project = path.join(root, "repo");
