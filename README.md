@@ -106,7 +106,7 @@ Example:
 }
 ```
 
-The package includes `.pi/agents/reviewer-with-scout.md` as an experimental read-only reviewer for benchmark trials. It may call only `scout`, keeps final judgment with the reviewer, and avoids scout calls for tiny/local tasks.
+No special reviewer agent is required. If a reviewer is allowed to use `subagent`, keep the prompt contract narrow: call only `scout`, keep final judgment with the reviewer, and avoid scout calls for tiny/local tasks.
 
 ## Workspace and `cwd` semantics
 

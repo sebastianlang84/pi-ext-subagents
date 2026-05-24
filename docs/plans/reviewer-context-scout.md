@@ -81,13 +81,13 @@ Run prompt-only agent preflight before collecting decisions:
 node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --threshold-gate
 ```
 
-The default `reviewer` currently fails this gate because it does not expose `subagent`. For bounded prompt-only trials, use the project-local experimental agent:
+The default `reviewer` may fail this gate if it does not expose `subagent`. For bounded prompt-only trials, pass an explicit reviewer agent file that can call `subagent` but cannot call `bash`, `edit`, or `write`:
 
 ```bash
-node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --reviewer-agent .pi/agents/reviewer-with-scout.md --scout-agent ~/.pi/agent/agents/scout.md --threshold-gate
+node scripts/score-reviewer-context-scout-benchmark.mjs --agent-preflight --reviewer-agent path/to/reviewer.md --scout-agent ~/.pi/agent/agents/scout.md --threshold-gate
 ```
 
-The preflight must pass before treating reviewer→scout prompt-only decisions as runnable. It checks that the reviewer can call `subagent`, that the reviewer cannot call `edit` or `write`, and that the scout cannot call `subagent`, `edit`, or `write`.
+The preflight must pass before treating reviewer→scout prompt-only decisions as runnable. It checks that the reviewer can call `subagent`, that the reviewer cannot call `bash`, `edit`, or `write`, and that the scout cannot call `subagent`, `edit`, or `write`.
 
 Run a scored decisions report:
 
@@ -98,7 +98,7 @@ npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisio
 Current decision logs:
 
 1. No scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses seeded positive evidence while passing tiny/adversarial cases.
-2. Normal subagent scout flow: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes the current gate with `.pi/agents/reviewer-with-scout.md`.
+2. Normal subagent scout flow: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes the current scoring gate without a wrapper tool.
 
 The former wrapper trial was removed from the active benchmark suite because `context_scout` is not the product direction.
 
@@ -128,7 +128,7 @@ Implemented:
 
 - Documented the single-tool architecture decision.
 - Removed `context_scout` from the public tool surface and deleted the wrapper implementation.
-- Routed reviewer evidence tests/docs through `.pi/agents/reviewer-with-scout.md` and normal `subagent` calls.
+- Routed reviewer evidence tests/docs through normal `subagent` calls instead of a special reviewer wrapper agent.
 - Removed wrapper benchmark artifacts from active gates; normal subagent scout evidence is the measured product path.
 - Kept generic subagent runtime controls unchanged because the normal reviewer→scout benchmark passes without another tool or new schema.
 

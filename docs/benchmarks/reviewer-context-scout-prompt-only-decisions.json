@@ -3,7 +3,7 @@
   "generatedAt": "2026-05-23",
   "runs": [
     {
-      "condition": "prompt-only-reviewer-with-scout",
+      "condition": "prompt-only-subagent-scout",
       "model": "openai-codex/gpt-5.5",
       "decisions": [
         {

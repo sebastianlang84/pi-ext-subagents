@@ -101,11 +101,11 @@ test("no-scout baseline records expected seeded-evidence misses", () => {
 	assert.equal(report.runs[0].groups.adversarial.passRate, 1);
 });
 
-test("prompt-only reviewer-with-scout decision run passes reviewer-scout gate", () => {
+test("prompt-only subagent scout decision run passes reviewer-scout gate", () => {
 	const report = scoreBenchmark(fixtures, promptOnlyDecisions);
 
 	assert.equal(report.gate.passed, true);
-	assert.equal(report.runs[0].condition, "prompt-only-reviewer-with-scout");
+	assert.equal(report.runs[0].condition, "prompt-only-subagent-scout");
 	assert.equal(report.runs[0].groups.positive.passRate, 1);
 	assert.equal(report.runs[0].groups.positive.scoutCalls, 4);
 	assert.equal(report.runs[0].groups.negative.falsePositiveRate, 0);
