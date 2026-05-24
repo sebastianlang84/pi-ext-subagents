@@ -41,7 +41,7 @@ Scout responsibilities:
 - Report gaps and uncertainty instead of guessing.
 - Do not call subagents recursively.
 
-Desired scout output shape:
+Desired scout output shape, represented in benchmark decision logs as `scoutOutputs[]` entries:
 
 - `summary`
 - `evidence[]`: `{ path, lines?, whyRelevant }`
@@ -119,6 +119,7 @@ Pass thresholds:
 - At most 2 scout calls in any reviewer task.
 - Required evidence labels are present for scout-positive fixtures.
 - Seeded file/line evidence refs are present and bounded.
+- Positive scout calls include one structured `scoutOutputs[]` entry per scout call.
 - Reviewer final findings distinguish scout evidence from reviewer judgment.
 - Total scout output stays within `scoutCalls * maxOutputChars`.
 
@@ -133,8 +134,9 @@ Implemented:
 - Kept reviewer-scout on normal subagent flow instead of adding a wrapper tool.
 - Added generic top-level `maxCalls` so a subagent request can reject `tasks[]` or `chain[]` fanout beyond a caller-specified budget.
 - Renamed benchmark files, npm script, and scorer to `reviewer-scout` terminology.
+- Added benchmark-only validation for structured scout output (`summary`, `evidence[]`, `gaps[]`, `confidence`) without changing the runtime `subagent` API.
 
 ## Open questions
 
 - `maxCalls` now covers per-request call budgets, but there is still no conversation-wide quota or role allowlist.
-- How should scout evidence be normalized without adding too much schema/token surface?
+- Should structured scout evidence remain a benchmark-decision-log convention, or should a future runtime affordance normalize it without adding too much schema/token surface?

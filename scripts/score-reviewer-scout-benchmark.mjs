@@ -11,6 +11,7 @@ const ALLOWED_SCOUT_AGENT = "scout";
 const REVIEWER_FORBIDDEN_TOOLS = new Set(["bash", "edit", "write"]);
 const SCOUT_FORBIDDEN_TOOLS = new Set(["subagent", "edit", "write"]);
 const MAX_EVIDENCE_REF_SPAN_LINES = 80;
+const VALID_CONFIDENCE = new Set(["low", "medium", "high"]);
 
 export function loadJsonFile(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -23,6 +24,11 @@ function asArray(value, label) {
 
 function optionalArray(value, label) {
 	return value === undefined ? [] : asArray(value, label);
+}
+
+function asNonEmptyString(value, label) {
+	if (typeof value !== "string" || value.trim() === "") throw new Error(`${label} must be a non-empty string.`);
+	return value;
 }
 
 function asNonNegativeInteger(value, label) {
@@ -56,6 +62,25 @@ function evidenceRefMatches(required, actual) {
 
 function formatEvidenceRef(ref) {
 	return `${ref.kind}:${ref.path}:${ref.startLine}-${ref.endLine}`;
+}
+
+function validateScoutEvidence(evidence, label) {
+	if (!evidence || typeof evidence !== "object") throw new Error(`${label} must be an object.`);
+	asNonEmptyString(evidence.path, `${label}.path`);
+	if (evidence.lines !== undefined) asNonEmptyString(evidence.lines, `${label}.lines`);
+	asNonEmptyString(evidence.whyRelevant, `${label}.whyRelevant`);
+}
+
+function validateScoutOutput(output, label) {
+	if (!output || typeof output !== "object") throw new Error(`${label} must be an object.`);
+	asNonEmptyString(output.summary, `${label}.summary`);
+	for (const [index, evidence] of asArray(output.evidence, `${label}.evidence`).entries()) {
+		validateScoutEvidence(evidence, `${label}.evidence[${index}]`);
+	}
+	for (const [index, gap] of asArray(output.gaps, `${label}.gaps`).entries()) {
+		asNonEmptyString(gap, `${label}.gaps[${index}]`);
+	}
+	if (!VALID_CONFIDENCE.has(output.confidence)) throw new Error(`${label}.confidence must be one of: low, medium, high.`);
 }
 
 export function validateFixturesDocument(doc) {
@@ -114,6 +139,13 @@ export function validateDecisionsDocument(doc) {
 			for (const [refIndex, ref] of optionalArray(decision.evidenceRefs, `run ${run.condition} fixture ${decision.fixtureId} evidenceRefs`).entries()) {
 				validateEvidenceRef(ref, `run ${run.condition} fixture ${decision.fixtureId} evidenceRefs[${refIndex}]`);
 			}
+			const scoutOutputs = optionalArray(decision.scoutOutputs, `run ${run.condition} fixture ${decision.fixtureId} scoutOutputs`);
+			if (scoutOutputs.length > 0 && scoutOutputs.length !== scoutCalls) {
+				throw new Error(`run ${run.condition} fixture ${decision.fixtureId} scoutOutputs length must match scoutCalls.`);
+			}
+			for (const [outputIndex, output] of scoutOutputs.entries()) {
+				validateScoutOutput(output, `run ${run.condition} fixture ${decision.fixtureId} scoutOutputs[${outputIndex}]`);
+			}
 			const subagentCalls = optionalArray(decision.subagentCalls, `run ${run.condition} fixture ${decision.fixtureId} subagentCalls`);
 			if (subagentCalls.length !== scoutCalls) {
 				throw new Error(`run ${run.condition} fixture ${decision.fixtureId} subagentCalls length must match scoutCalls.`);
@@ -154,6 +186,8 @@ export function scoreDecision(fixture, decision) {
 	const finalJudgmentDelegated = decision.finalJudgmentDelegated === true;
 	const subagentCalls = decision.subagentCalls ?? [];
 	const nonScoutSubagentCall = subagentCalls.some((call) => call.agent !== ALLOWED_SCOUT_AGENT);
+	const scoutOutputs = decision.scoutOutputs ?? [];
+	const missingStructuredScoutOutput = fixture.expectedScoutUse === true && scoutCalls > 0 && scoutOutputs.length !== scoutCalls;
 	const missingEvidenceSeparation = fixture.expectedScoutUse === true && scoutCalls > 0 && decision.evidenceSeparated !== true;
 
 	const failures = [
@@ -167,6 +201,7 @@ export function scoreDecision(fixture, decision) {
 		[missedScout, "missing scout use"],
 		[missingEvidence.length > 0, `missing evidence: ${missingEvidence.join(", ")}`],
 		[missingEvidenceRefs.length > 0, `missing seeded evidence: ${missingEvidenceRefs.map(formatEvidenceRef).join(", ")}`],
+		[missingStructuredScoutOutput, "missing structured scout output"],
 		[missingEvidenceSeparation, "scout evidence not separated from reviewer judgment"],
 	];
 	const failure = failures.find(([failed]) => failed);
@@ -182,6 +217,7 @@ export function scoreDecision(fixture, decision) {
 		finalJudgmentDelegated,
 		nonScoutSubagentCall,
 		outputCapViolation,
+		missingStructuredScoutOutput,
 		scoutCalls,
 	};
 }
@@ -202,6 +238,7 @@ function baseResult(fixture, label, reason) {
 		finalJudgmentDelegated: false,
 		nonScoutSubagentCall: false,
 		outputCapViolation: false,
+		missingStructuredScoutOutput: false,
 		scoutCalls: 0,
 	};
 }
@@ -230,6 +267,7 @@ function summarizeRun(fixtureDoc, run) {
 			"finalJudgmentDelegated",
 			"nonScoutSubagentCall",
 			"outputCapViolation",
+			"missingStructuredScoutOutput",
 		]) {
 			if (result[key]) current[key]++;
 		}
@@ -259,6 +297,7 @@ function totals() {
 		finalJudgmentDelegated: 0,
 		nonScoutSubagentCall: 0,
 		outputCapViolation: 0,
+		missingStructuredScoutOutput: 0,
 		scoutCalls: 0,
 	};
 }
@@ -279,6 +318,7 @@ function evaluateThresholds(fixtureDoc, runs) {
 		maxSeededEvidenceMisses: 0,
 		maxScoutCallViolations: 0,
 		maxOutputCapViolations: 0,
+		maxStructuredScoutOutputMisses: 0,
 		...(fixtureDoc.thresholds ?? {}),
 	};
 	const issues = [];
@@ -306,6 +346,7 @@ function evaluateThresholds(fixtureDoc, runs) {
 			["missingSeededEvidence", "maxSeededEvidenceMisses"],
 			["tooManyScoutCalls", "maxScoutCallViolations"],
 			["outputCapViolation", "maxOutputCapViolations"],
+			["missingStructuredScoutOutput", "maxStructuredScoutOutputMisses"],
 		]) {
 			const actual = sumMetric(run, metric);
 			if (actual > thresholds[thresholdName]) {

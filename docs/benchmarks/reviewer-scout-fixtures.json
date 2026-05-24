@@ -10,7 +10,8 @@
     "maxNonScoutSubagentCalls": 0,
     "maxSeededEvidenceMisses": 0,
     "maxScoutCallViolations": 0,
-    "maxOutputCapViolations": 0
+    "maxOutputCapViolations": 0,
+    "maxStructuredScoutOutputMisses": 0
   },
   "fixtures": [
     {

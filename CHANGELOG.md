@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.4.1 - 2026-05-25
+
+SemVer impact: patch.
+
+- Add structured scout-output validation to the reviewer-scout benchmark decision logs and gate.
+
 ## 1.4.0 - 2026-05-25
 
 SemVer impact: minor.

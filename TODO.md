@@ -23,4 +23,4 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Benchmark/script names now use `reviewer-scout`.
    - Follow-ups to discuss:
      - Per-request budget enforcement now exists via top-level `maxCalls`; decide from evidence whether conversation-wide quotas or role allowlists are needed.
-     - Scout output is currently raw text; consider validating/normalizing structured evidence refs, gaps, and confidence.
+     - Structured scout evidence is now validated in benchmark decision logs; decide later whether runtime normalization is worth the schema/token surface.

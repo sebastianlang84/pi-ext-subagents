@@ -14,6 +14,20 @@ function decision(fixtureId, overrides = {}) {
 	return { fixtureId, scoutCalls: 0, evidenceKinds: [], outputChars: 0, ...overrides };
 }
 
+function scoutOutput(fixture, overrides = {}) {
+	return {
+		summary: `Structured evidence for ${fixture.id}`,
+		evidence: (fixture.requiredEvidenceRefs ?? []).map((ref) => ({
+			path: ref.path,
+			lines: `${ref.startLine}-${ref.endLine}`,
+			whyRelevant: ref.kind,
+		})),
+		gaps: [],
+		confidence: "high",
+		...overrides,
+	};
+}
+
 function allPassingDecision(fixture) {
 	if (!fixture.expectedScoutUse) return decision(fixture.id);
 	return decision(fixture.id, {
@@ -21,6 +35,7 @@ function allPassingDecision(fixture) {
 		subagentCalls: [{ agent: "scout", purpose: "fixture evidence" }],
 		evidenceKinds: fixture.requiredEvidence ?? [],
 		evidenceRefs: fixture.requiredEvidenceRefs ?? [],
+		scoutOutputs: [scoutOutput(fixture)],
 		evidenceSeparated: true,
 		outputChars: 1000,
 	});
@@ -62,11 +77,27 @@ test("scoreDecision passes bounded evidence-only scout use", () => {
 		subagentCalls: [{ agent: "scout", purpose: "contract and call sites" }],
 		evidenceKinds: ["api-contract", "call-sites"],
 		evidenceRefs: fixture.requiredEvidenceRefs,
+		scoutOutputs: [scoutOutput(fixture)],
 		evidenceSeparated: true,
 	}));
 
 	assert.equal(result.label, "pass");
 	assert.equal(result.reason, "expected scout behavior");
+});
+
+test("scoreDecision requires structured scout output for positive scout use", () => {
+	const fixture = fixtures.fixtures.find((candidate) => candidate.id === "P1");
+	const result = scoreDecision(fixture, decision("P1", {
+		scoutCalls: 1,
+		subagentCalls: [{ agent: "scout", purpose: "contract and call sites" }],
+		evidenceKinds: ["api-contract", "call-sites"],
+		evidenceRefs: fixture.requiredEvidenceRefs,
+		evidenceSeparated: true,
+	}));
+
+	assert.equal(result.label, "fail");
+	assert.equal(result.reason, "missing structured scout output");
+	assert.equal(result.missingStructuredScoutOutput, true);
 });
 
 test("scoreDecision flags false-positive scout use on tiny reviews", () => {
@@ -108,6 +139,7 @@ test("prompt-only subagent scout decision run passes reviewer-scout gate", () =>
 	assert.equal(report.runs[0].condition, "prompt-only-subagent-scout");
 	assert.equal(report.runs[0].groups.positive.passRate, 1);
 	assert.equal(report.runs[0].groups.positive.scoutCalls, 4);
+	assert.equal(report.runs[0].groups.positive.missingStructuredScoutOutput, 0);
 	assert.equal(report.runs[0].groups.negative.falsePositiveRate, 0);
 	assert.equal(report.runs[0].groups.adversarial.falsePositiveRate, 0);
 });
@@ -146,6 +178,7 @@ test("scoreDecision treats output cap as per scout call", () => {
 		subagentCalls: [{ agent: "scout" }, { agent: "scout" }],
 		evidenceKinds: ["api-contract", "call-sites"],
 		evidenceRefs: fixture.requiredEvidenceRefs,
+		scoutOutputs: [scoutOutput(fixture), scoutOutput(fixture)],
 		evidenceSeparated: true,
 		outputChars: 6000,
 	}));
@@ -273,6 +306,35 @@ test("prompt-only preflight rejects non-scout scout agent and YAML-list tools", 
 	assert.ok(wrongName.preflight.issues.some((issue) => issue.role === "scout" && issue.metric === "agentName"));
 	assert.equal(badTools.preflight.status, "fail");
 	assert.ok(badTools.preflight.issues.some((issue) => issue.role === "scout" && issue.metric === "agentConfigReadable"));
+});
+
+test("scoreBenchmark rejects malformed structured scout output", () => {
+	assert.throws(() => scoreBenchmark(fixtures, {
+		runs: [{ condition: "prompt-only", decisions: fixtures.fixtures.map((fixture) => {
+			if (fixture.id === "P1") return decision("P1", {
+				scoutCalls: 1,
+				subagentCalls: [{ agent: "scout" }],
+				evidenceKinds: ["api-contract", "call-sites"],
+				evidenceRefs: fixture.requiredEvidenceRefs,
+				scoutOutputs: [{ summary: "ok", evidence: [], gaps: [], confidence: "certain" }],
+				evidenceSeparated: true,
+			});
+			return allPassingDecision(fixture);
+		}) }],
+	}), /confidence must be one of/);
+	assert.throws(() => scoreBenchmark(fixtures, {
+		runs: [{ condition: "prompt-only", decisions: fixtures.fixtures.map((fixture) => {
+			if (fixture.id === "P1") return decision("P1", {
+				scoutCalls: 2,
+				subagentCalls: [{ agent: "scout" }, { agent: "scout" }],
+				evidenceKinds: ["api-contract", "call-sites"],
+				evidenceRefs: fixture.requiredEvidenceRefs,
+				scoutOutputs: [scoutOutput(fixture)],
+				evidenceSeparated: true,
+			});
+			return allPassingDecision(fixture);
+		}) }],
+	}), /scoutOutputs length must match scoutCalls/);
 });
 
 test("scoreBenchmark rejects overbroad evidence refs", () => {

@@ -29,6 +29,17 @@
             { "kind": "api-contract", "path": "docs/plans/reviewer-scout.md", "startLine": 7, "endLine": 25 },
             { "kind": "call-sites", "path": "package.json", "startLine": 22, "endLine": 26 }
           ],
+          "scoutOutputs": [
+            {
+              "summary": "The documented reviewer-scout contract and npm benchmark script cover this API path.",
+              "evidence": [
+                { "path": "docs/plans/reviewer-scout.md", "lines": "7-25", "whyRelevant": "Defines the public subagent-only reviewer-scout architecture and final-judgment ownership." },
+                { "path": "package.json", "lines": "22-26", "whyRelevant": "Shows the reviewer-scout benchmark command exposed through npm scripts." }
+              ],
+              "gaps": [],
+              "confidence": "high"
+            }
+          ],
           "evidenceSeparated": true,
           "outputChars": 266,
           "recursionViolation": false,
@@ -48,6 +59,24 @@
             { "kind": "tests", "path": "tests/reviewer-scout-benchmark.test.mjs", "startLine": 178, "endLine": 195 },
             { "kind": "conventions", "path": "docs/plans/reviewer-scout.md", "startLine": 27, "endLine": 49 }
           ],
+          "scoutOutputs": [
+            {
+              "summary": "Existing tests exercise seeded evidence refs and malformed evidence ranges.",
+              "evidence": [
+                { "path": "tests/reviewer-scout-benchmark.test.mjs", "lines": "178-195", "whyRelevant": "Covers missing, wrong-range, wrong-kind, and wrong-path seeded evidence failures." }
+              ],
+              "gaps": [],
+              "confidence": "high"
+            },
+            {
+              "summary": "The plan documents the reviewer and scout responsibilities plus desired output shape.",
+              "evidence": [
+                { "path": "docs/plans/reviewer-scout.md", "lines": "27-49", "whyRelevant": "Defines bounded scout use, read-only behavior, gaps, confidence, and line evidence expectations." }
+              ],
+              "gaps": [],
+              "confidence": "high"
+            }
+          ],
           "evidenceSeparated": true,
           "outputChars": 640,
           "recursionViolation": false,
@@ -64,6 +93,16 @@
           "evidenceKinds": ["scope"],
           "evidenceRefs": [
             { "kind": "scope", "path": "docs/plans/reviewer-scout.md", "startLine": 68, "endLine": 96 }
+          ],
+          "scoutOutputs": [
+            {
+              "summary": "The evaluation section defines bounded prompt-only reviewer-scout scoring and gate scope.",
+              "evidence": [
+                { "path": "docs/plans/reviewer-scout.md", "lines": "68-96", "whyRelevant": "Lists runnable benchmark commands, current decision logs, and fixture scope." }
+              ],
+              "gaps": [],
+              "confidence": "high"
+            }
           ],
           "evidenceSeparated": true,
           "outputChars": 930,
