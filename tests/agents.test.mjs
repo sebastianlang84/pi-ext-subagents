@@ -8,6 +8,7 @@ import { createJiti } from "jiti";
 const jiti = createJiti(import.meta.url);
 const {
 	discoverAgents,
+	formatAgentSource,
 	formatProjectAgentTrustDiagnostics,
 	getMutationCapableTools,
 	getProjectAgentTrustDecision,
@@ -19,7 +20,7 @@ function writeAgent(file, frontmatter, body = "Body") {
 	fs.writeFileSync(file, `---\n${frontmatter}\n---\n\n${body}\n`);
 }
 
-test("discovers user/project agents with project precedence in both scope", () => {
+test("discovers global/repo agents with repo precedence in global+repo scope", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-agents-"));
 	const home = path.join(root, "home");
 	const project = path.join(root, "repo");
@@ -29,12 +30,17 @@ test("discovers user/project agents with project precedence in both scope", () =
 	writeAgent(path.join(project, ".pi", "agents", "same.md"), "name: same\ndescription: Project agent\ntools: read\nmodel: project-model");
 	writeAgent(path.join(project, ".pi", "agents", "project-only.md"), "name: project-only\ndescription: Project only");
 
-	assert.deepEqual(discoverAgents(project, "user").agents.map((a) => `${a.name}:${a.source}`), ["same:user"]);
-	assert.deepEqual(discoverAgents(project, "project").agents.map((a) => `${a.name}:${a.source}`).sort(), ["project-only:project", "same:project"]);
+	assert.deepEqual(discoverAgents(project, "global").agents.map((a) => `${a.name}:${a.source}`), ["same:user"]);
+	assert.deepEqual(discoverAgents(project, "repo").agents.map((a) => `${a.name}:${a.source}`).sort(), ["project-only:project", "same:project"]);
 
-	const both = discoverAgents(project, "both").agents;
+	const both = discoverAgents(project, "global+repo").agents;
 	assert.equal(both.find((a) => a.name === "same")?.source, "project");
 	assert.equal(both.find((a) => a.name === "same")?.model, "project-model");
+	assert.deepEqual(discoverAgents(project, "user").agents.map((a) => `${a.name}:${a.source}`), ["same:user"]);
+	assert.deepEqual(discoverAgents(project, "project").agents.map((a) => `${a.name}:${a.source}`).sort(), ["project-only:project", "same:project"]);
+	assert.equal(discoverAgents(project, "both").agents.find((a) => a.name === "same")?.source, "project");
+	assert.equal(formatAgentSource("user"), "global");
+	assert.equal(formatAgentSource("project"), "repo");
 });
 
 test("reports malformed agents, YAML-list tools, and accepts symlinked md files", () => {
@@ -85,9 +91,9 @@ test("formats project-agent trust diagnostics with realpaths and mutation warnin
 	assert.deepEqual(getMutationCapableTools(agent), ["bash", "edit"]);
 	const text = formatProjectAgentTrustDiagnostics([agent], dir);
 
-	assert.match(text, /Warning: mutation-capable project-agent tools requested: danger \(bash, edit\)\./);
-	assert.match(text, /Project agents dir:/);
-	assert.match(text, /Project agent details:/);
+	assert.match(text, /Warning: mutation-capable repo-agent tools requested: danger \(bash, edit\)\./);
+	assert.match(text, /Repo agents dir:/);
+	assert.match(text, /Repo agent details:/);
 	assert.match(text, /danger: model=model-a; tools=read, bash, edit; file=/);
 	assert.match(text, /danger-link\.md -> .*danger-target\.md/);
 });
@@ -157,8 +163,8 @@ test("project-agent trust diagnostics cap displayed agents", () => {
 
 	const text = formatProjectAgentTrustDiagnostics(agents, root);
 
-	assert.match(text, /Warning: mutation-capable project-agent tools requested: agent-0 \(bash\); .*; \+2 more\./);
+	assert.match(text, /Warning: mutation-capable repo-agent tools requested: agent-0 \(bash\); .*; \+2 more\./);
 	assert.match(text, /- agent-7: model=\(default\); tools=bash; file=/);
 	assert.doesNotMatch(text, /- agent-8: model=/);
-	assert.match(text, /- \.\.\. 2 more project agents/);
+	assert.match(text, /- \.\.\. 2 more repo agents/);
 });

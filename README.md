@@ -23,7 +23,7 @@ After installation, restart Pi or run `/reload`; the `subagent` tool should be a
 
 ## Agent files
 
-User agents live in `~/.pi/agent/agents/*.md`. Project-local agents live in `.pi/agents/*.md` under the current repo. Agent files use frontmatter plus a system prompt body:
+Global agents live in `~/.pi/agent/agents/*.md`. Repo-local agents live in `.pi/agents/*.md` under the current repo. Agent files use frontmatter plus a system prompt body:
 
 ```markdown
 ---
@@ -36,7 +36,7 @@ model: openai-codex/gpt-5.5
 You are a focused read-only reviewer...
 ```
 
-`tools` must be a comma-separated string. Project agents override same-named user agents only when `agentScope` is `both`.
+`tools` must be a comma-separated string. Repo-local agents override same-named global agents only when `agentScope` is `global+repo` (`both` remains a legacy alias).
 
 ## Usage
 
@@ -110,7 +110,7 @@ No special reviewer agent is required. If a reviewer is allowed to use `subagent
 
 ## Workspace and `cwd` semantics
 
-Agent discovery is rooted at Pi's current workspace (`ctx.cwd`). Project-local agents are discovered from the nearest `.pi/agents` directory at or above that workspace, not from a per-run execution `cwd`.
+Agent discovery is rooted at Pi's current workspace (`ctx.cwd`). Repo-local agents are discovered from the nearest `.pi/agents` directory at or above that workspace, not from a per-run execution `cwd`.
 
 Execution uses the step `cwd` when provided, otherwise it falls back to the current workspace. In single mode this is the top-level `cwd`; in parallel and chain mode it is each task/step's `cwd`.
 
@@ -162,39 +162,41 @@ Use chain mode when each step depends on the previous step's compressed output. 
 }
 ```
 
-### Project-agent trust guidance
+### Repo-agent trust guidance
 
-Prefer the default `agentScope: "user"` for untrusted repositories. Use `agentScope: "project"` or `"both"` only when you trust the repo-controlled `.pi/agents` prompts; interactive runs show confirmation details before executing project-local agents.
+Prefer the default `agentScope: "global"` for untrusted repositories. Use `agentScope: "repo"` or `"global+repo"` only when you trust the repo-controlled `.pi/agents` prompts; interactive runs show confirmation details before executing repo-local agents. Legacy aliases `"user"`, `"project"`, and `"both"` are still accepted.
 
 ## Troubleshooting
 
-- **Unknown agents:** verify the agent file exists in `~/.pi/agent/agents/*.md` for user scope or `.pi/agents/*.md` for project scope, and that the requested `agentScope` includes that source.
+- **Unknown agents:** verify the agent file exists in `~/.pi/agent/agents/*.md` for global scope or `.pi/agents/*.md` for repo scope, and that the requested `agentScope` includes that source.
 - **Invalid frontmatter:** ensure each agent file has `name` and `description` frontmatter. `tools` must be a comma-separated string, not a YAML list.
-- **Project agents fail in JSON/headless mode:** project-local agents fail closed unless `confirmProjectAgents: false` is explicitly set for a trusted repository.
+- **Repo agents fail in JSON/headless mode:** repo-local agents fail closed unless `confirmProjectAgents: false` is explicitly set for a trusted repository.
 - **JSON-mode diagnostics:** malformed subagent JSON stdout events are skipped and recorded in the result diagnostics so later valid events can still complete.
 - **Partial parallel failures:** inspect each task result. Successful task outputs remain available, while failed tasks include `stopReason`, stderr/error diagnostics, and a non-success tool result.
 
 ## Agent scope and security
 
-By default only user agents are available:
+By default only global agents are available:
 
 ```json
-{ "agentScope": "user" }
+{ "agentScope": "global" }
 ```
 
-Use project-local agents only for trusted repositories:
+Use repo-local agents only for trusted repositories:
 
 ```json
-{ "agentScope": "project" }
+{ "agentScope": "repo" }
 ```
 
 or combine both sources:
 
 ```json
-{ "agentScope": "both" }
+{ "agentScope": "global+repo" }
 ```
 
-Project-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution and shows the agent model, tools, file path/realpath, plus warnings for mutation-capable tools such as `bash`, `write`, and `edit`. In headless/JSON/print modes, it fails closed with the same diagnostics unless you explicitly set:
+Legacy aliases remain accepted for compatibility: `"user"` → `"global"`, `"project"` → `"repo"`, and `"both"` → `"global+repo"`.
+
+Repo-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution and shows the agent model, tools, file path/realpath, plus warnings for mutation-capable tools such as `bash`, `write`, and `edit`. In headless/JSON/print modes, it fails closed with the same diagnostics unless you explicitly set:
 
 ```json
 { "confirmProjectAgents": false }

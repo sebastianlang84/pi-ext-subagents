@@ -416,11 +416,11 @@ test("project-agent discovery uses context cwd, not the requested execution cwd"
 
 	assert.equal(result.isError, true);
 	assert.match(result.content[0].text, /Unknown agent: "run-agent"/);
-	assert.match(result.content[0].text, /Available agents: ctx-agent \(project\)/);
+	assert.match(result.content[0].text, /Available agents: ctx-agent \(repo\)/);
 	assert.equal(result.details.projectAgentsDir, path.join(project, ".pi", "agents"));
 });
 
-test("project-local agents fail closed in headless mode by default", async () => {
+test("repo-local agents fail closed in headless mode by default", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-headless-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
@@ -437,13 +437,13 @@ test("project-local agents fail closed in headless mode by default", async () =>
 
 	assert.equal(result.isError, true);
 	assert.match(result.content[0].text, /require interactive confirmation/);
-	assert.match(result.content[0].text, /Warning: mutation-capable project-agent tools requested: danger \(bash\)\./);
-	assert.match(result.content[0].text, /Project agents dir:/);
+	assert.match(result.content[0].text, /Warning: mutation-capable repo-agent tools requested: danger \(bash\)\./);
+	assert.match(result.content[0].text, /Repo agents dir:/);
 	assert.match(result.content[0].text, /danger: model=model-a; tools=read, bash; file=/);
 	assert.equal(result.details.results.length, 0);
 });
 
-test("interactive project-local confirmation can cancel before execution", async () => {
+test("interactive repo-local confirmation can cancel before execution", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-confirm-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
@@ -468,8 +468,8 @@ test("interactive project-local confirmation can cancel before execution", async
 		},
 	);
 
-	assert.match(promptMessage, /Warning: mutation-capable project-agent tools requested: danger \(write\)\./);
-	assert.match(promptMessage, /Project agent details:/);
+	assert.match(promptMessage, /Warning: mutation-capable repo-agent tools requested: danger \(write\)\./);
+	assert.match(promptMessage, /Repo agent details:/);
 	assert.match(promptMessage, /danger: model=\(default\); tools=read, write; file=/);
 	assert.match(result.content[0].text, /not approved/);
 	assert.equal(result.isError, true);

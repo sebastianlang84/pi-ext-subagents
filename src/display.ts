@@ -1,5 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
+import { formatAgentSource } from "./agents.js";
 import { getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
 import { getFinalOutput, type SingleResult, type SubagentDetails } from "./run.js";
 
@@ -82,6 +83,10 @@ function sliceItems(items: DisplayItem[], limit?: number): { items: DisplayItem[
 	return { items: items.slice(-limit), skippedItems: items.length - limit };
 }
 
+function formatResultAgentSource(source: SingleResult["agentSource"]): "global" | "repo" | "unknown" {
+	return source === "unknown" ? "unknown" : formatAgentSource(source);
+}
+
 function resultSection(result: SingleResult, expanded: boolean, limit?: number): ResultDisplaySection {
 	const allItems = getDisplayItems(result.messages);
 	const { items, skippedItems } = sliceItems(allItems, expanded ? undefined : limit);
@@ -90,7 +95,7 @@ function resultSection(result: SingleResult, expanded: boolean, limit?: number):
 	return {
 		heading: result.step ? `Step ${result.step}: ${result.agent}` : result.agent,
 		status,
-		meta: result.agentSource,
+		meta: formatResultAgentSource(result.agentSource),
 		task: expanded ? result.task : undefined,
 		error,
 		items,
@@ -133,7 +138,7 @@ export function buildResultDisplayModel(
 		const r = details.results[0];
 		const section = resultSection(r, expanded, collapsedItemCount);
 		return {
-			header: `${r.agent} (${r.agentSource})`,
+			header: `${r.agent} (${formatResultAgentSource(r.agentSource)})`,
 			tone: section.status,
 			sections: [section],
 			expandHint: !expanded && getDisplayItems(r.messages).length > collapsedItemCount,

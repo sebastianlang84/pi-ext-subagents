@@ -1,4 +1,4 @@
-import type { AgentScope } from "./agents.js";
+import { normalizeAgentScope, type AgentScope, type AgentScopeInput } from "./agents.js";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_TIMEOUT_MS = 2_147_483_647;
@@ -24,7 +24,7 @@ export interface SubagentParams extends RuntimeControls {
 	task?: string;
 	tasks?: RequestTask[];
 	chain?: RequestTask[];
-	agentScope?: AgentScope;
+	agentScope?: AgentScopeInput;
 	confirmProjectAgents?: boolean;
 	cwd?: string;
 }
@@ -109,11 +109,11 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 		throw new RequestValidationError("Provide exactly one mode: single (agent/task), parallel (tasks), or chain (chain).");
 	}
 
-	const agentScope = params.agentScope ?? "user";
+	const agentScope = normalizeAgentScope(params.agentScope);
 	const confirmProjectAgents = params.confirmProjectAgents ?? true;
 
-	if (agentScope !== "user" && agentScope !== "project" && agentScope !== "both") {
-		throw new RequestValidationError('agentScope must be one of "user", "project", or "both".');
+	if (!agentScope) {
+		throw new RequestValidationError('agentScope must be one of "global", "repo", or "global+repo". Legacy aliases "user", "project", and "both" are also accepted.');
 	}
 
 	if (hasSingleFields) {

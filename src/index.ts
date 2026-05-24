@@ -17,7 +17,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { type ExtensionAPI, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { type AgentScope } from "./agents.js";
+import { normalizeAgentScope } from "./agents.js";
 import { buildResultDisplayModel, type DisplayItem, type DisplayTone } from "./display.js";
 import { executeSubagentRequest, type SubagentExecutionDeps } from "./execution.js";
 export {
@@ -116,9 +116,9 @@ const ChainItem = Type.Object({
 	...RuntimeControls,
 });
 
-const AgentScopeSchema = StringEnum(["user", "project", "both"] as const, {
-	description: "Agent source: user (default), project, or both.",
-	default: "user",
+const AgentScopeSchema = StringEnum(["global", "repo", "global+repo", "user", "project", "both"] as const, {
+	description: "Scope: global(default), repo, global+repo; aliases user/project/both.",
+	default: "global",
 });
 
 const SubagentParams = Type.Object({
@@ -128,7 +128,7 @@ const SubagentParams = Type.Object({
 	chain: Type.Optional(Type.Array(ChainItem)),
 	agentScope: Type.Optional(AgentScopeSchema),
 	confirmProjectAgents: Type.Optional(
-		Type.Boolean({ description: "Prompt before project agents; default true.", default: true }),
+		Type.Boolean({ description: "Prompt before repo agents; default true.", default: true }),
 	),
 	cwd: Type.Optional(Type.String()),
 	...RuntimeControls,
@@ -143,8 +143,8 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 	return {
 		name: "subagent",
 		label: "Subagent",
-		description: "Run isolated Pi subagents: single, parallel, or chain; user scope by default.",
-		promptSnippet: "Run isolated subagents.",
+		description: "Run isolated Pi subagents: single, parallel, or chain.",
+		promptSnippet: "Run subagents.",
 		promptGuidelines: [
 			"Use for scoped delegation; main agent owns final judgment.",
 			"Prefer parallel for independent lanes, chain for ordered handoffs; avoid tiny tasks.",
@@ -155,7 +155,7 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 			return executeSubagentRequest(params, ctx, { signal, onUpdate, deps });
 		},
 		renderCall(args, theme, _context) {
-			const scope: AgentScope = args.agentScope ?? "user";
+			const scope = normalizeAgentScope(args.agentScope) ?? "global";
 			if (args.chain && args.chain.length > 0) {
 				let text =
 					theme.fg("toolTitle", theme.bold("subagent ")) +

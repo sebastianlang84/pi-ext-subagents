@@ -6,7 +6,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
-export type AgentScope = "user" | "project" | "both";
+export type AgentScope = "global" | "repo" | "global+repo";
+export type LegacyAgentScope = "user" | "project" | "both";
+export type AgentScopeInput = AgentScope | LegacyAgentScope;
 export type AgentSource = "user" | "project";
 
 export interface AgentConfig {
@@ -41,6 +43,28 @@ const MUTATION_CAPABLE_TOOLS = new Set(["bash", "write", "edit"]);
 const MAX_DIAGNOSTIC_FIELD_CHARS = 120;
 const MAX_DIAGNOSTIC_PATH_CHARS = 300;
 const MAX_DIAGNOSTIC_AGENTS = 8;
+
+export function normalizeAgentScope(value: unknown): AgentScope | undefined {
+	switch (value) {
+		case undefined:
+		case null:
+		case "global":
+		case "user":
+			return "global";
+		case "repo":
+		case "project":
+			return "repo";
+		case "global+repo":
+		case "both":
+			return "global+repo";
+		default:
+			return undefined;
+	}
+}
+
+export function formatAgentSource(source: AgentSource): "global" | "repo" {
+	return source === "user" ? "global" : "repo";
+}
 
 function normalizeRequiredString(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
@@ -150,23 +174,24 @@ function findNearestProjectAgentsDir(cwd: string): string | null {
 	}
 }
 
-export function discoverAgents(cwd: string, scope: AgentScope): AgentDiscoveryResult {
+export function discoverAgents(cwd: string, scopeInput: AgentScopeInput): AgentDiscoveryResult {
+	const scope = normalizeAgentScope(scopeInput) ?? "global";
 	const userDir = path.join(getAgentDir(), "agents");
 	const projectAgentsDir = findNearestProjectAgentsDir(cwd);
 
-	const userDiscovery = scope === "project" ? { agents: [], invalidAgents: [] } : loadAgentsFromDir(userDir, "user");
+	const userDiscovery = scope === "repo" ? { agents: [], invalidAgents: [] } : loadAgentsFromDir(userDir, "user");
 	const projectDiscovery =
-		scope === "user" || !projectAgentsDir
+		scope === "global" || !projectAgentsDir
 			? { agents: [], invalidAgents: [] }
 			: loadAgentsFromDir(projectAgentsDir, "project");
 
 	const agentMap = new Map<string, AgentConfig>();
 
-	if (scope === "both") {
+	if (scope === "global+repo") {
 		for (const agent of userDiscovery.agents) agentMap.set(agent.name, agent);
-		// Project-local agents intentionally override same-named user agents only when explicitly enabled.
+		// Repo-local agents intentionally override same-named global agents only when explicitly enabled.
 		for (const agent of projectDiscovery.agents) agentMap.set(agent.name, agent);
-	} else if (scope === "user") {
+	} else if (scope === "global") {
 		for (const agent of userDiscovery.agents) agentMap.set(agent.name, agent);
 	} else {
 		for (const agent of projectDiscovery.agents) agentMap.set(agent.name, agent);
@@ -191,7 +216,7 @@ export function getProjectAgentTrustDecision(
 	return {
 		requiresApproval: true,
 		projectAgents,
-		reason: "Project-local agents are repo-controlled and require trust approval before execution.",
+		reason: "Repo-local agents are repo-controlled and require trust approval before execution.",
 	};
 }
 
@@ -247,19 +272,19 @@ export function formatProjectAgentTrustDiagnostics(projectAgents: AgentConfig[],
 			.map((entry) => `${formatDiagnosticField(entry.agent.name)} (${entry.tools.join(", ")})`)
 			.join("; ");
 		lines.push(
-			`Warning: mutation-capable project-agent tools requested: ${warningText}${remainingMutationWarnings > 0 ? `; +${remainingMutationWarnings} more` : ""}.`,
+			`Warning: mutation-capable repo-agent tools requested: ${warningText}${remainingMutationWarnings > 0 ? `; +${remainingMutationWarnings} more` : ""}.`,
 		);
 	}
 
-	lines.push(`Project agents dir: ${projectAgentsDir ? formatPathWithRealpath(projectAgentsDir) : "(unknown)"}`);
-	lines.push("Project agent details:");
+	lines.push(`Repo agents dir: ${projectAgentsDir ? formatPathWithRealpath(projectAgentsDir) : "(unknown)"}`);
+	lines.push("Repo agent details:");
 	for (const agent of listedAgents) {
 		const name = formatDiagnosticField(agent.name);
 		const model = agent.model ? formatDiagnosticField(agent.model) : "(default)";
 		const tools = agent.tools?.length ? formatDiagnosticToolList(agent.tools) : "(not declared; Pi defaults may apply)";
 		lines.push(`- ${name}: model=${model}; tools=${tools}; file=${formatPathWithRealpath(agent.filePath)}`);
 	}
-	if (remainingAgents > 0) lines.push(`- ... ${remainingAgents} more project agent${remainingAgents === 1 ? "" : "s"}`);
+	if (remainingAgents > 0) lines.push(`- ... ${remainingAgents} more repo agent${remainingAgents === 1 ? "" : "s"}`);
 	return lines.join("\n");
 }
 
@@ -268,7 +293,7 @@ export function formatAgentList(agents: AgentConfig[], maxItems: number): { text
 	const listed = agents.slice(0, maxItems);
 	const remaining = agents.length - listed.length;
 	return {
-		text: listed.map((a) => `${a.name} (${a.source}): ${a.description}`).join("; "),
+		text: listed.map((a) => `${a.name} (${formatAgentSource(a.source)}): ${a.description}`).join("; "),
 		remaining,
 	};
 }

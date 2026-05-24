@@ -9,12 +9,6 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Impact: schema-visible fields are easy to misuse for parallel/chain defaults.
    - Next: either document/describe them as single-mode-only in prompt-facing schema text, or intentionally support them as defaults for parallel/chain items.
 
-3. [ ] Add clearer agent-scope naming aliases and display labels.
-   - Decision: prefer `global`, `repo`, and `global+repo` terminology over `user`, `project`, and `both` for user-facing scope names.
-   - Compatibility: keep existing `user`, `project`, and `both` accepted as aliases (`user -> global`, `project -> repo`, `both -> global+repo`).
-   - Rationale: `global` describes `~/.pi/agent/agents`, `repo` describes repo-controlled `.pi/agents`, and `global+repo` is clearer than `both` while preserving the trust boundary.
-   - Next: update schema/display/docs/tests without breaking existing calls.
-
 ## P2 (Packaging / release hygiene)
 
 1. [ ] Decide whether `.pi/agents` should remain in the package `files` allowlist.

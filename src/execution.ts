@@ -2,9 +2,11 @@ import * as os from "node:os";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import {
 	discoverAgents as defaultDiscoverAgents,
+	formatAgentSource,
 	formatProjectAgentTrustDiagnostics,
 	getProjectAgentTrustDecision,
-	type AgentScope,
+	normalizeAgentScope,
+	type AgentSource,
 	type InvalidAgentDiagnostic,
 } from "./agents.js";
 import {
@@ -59,15 +61,15 @@ function formatInvalidAgentDiagnostics(invalidAgents: InvalidAgentDiagnostic[], 
 	if (invalidAgents.length === 0) return "";
 	const listed = invalidAgents.slice(0, maxItems).map((diagnostic) => {
 		const filePath = shortenPath(diagnostic.filePath);
-		return `- ${diagnostic.source}: ${filePath}: ${diagnostic.reason}`;
+		return `- ${formatAgentSource(diagnostic.source)}: ${filePath}: ${diagnostic.reason}`;
 	});
 	const remaining = invalidAgents.length - listed.length;
 	if (remaining > 0) listed.push(`- ... ${remaining} more invalid agent${remaining === 1 ? "" : "s"}`);
 	return `Invalid agents:\n${listed.join("\n")}`;
 }
 
-function formatAvailableAgents(agents: { name: string; source: string }[]): string {
-	return agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
+function formatAvailableAgents(agents: { name: string; source: AgentSource }[]): string {
+	return agents.map((a) => `${a.name} (${formatAgentSource(a.source)})`).join(", ") || "none";
 }
 
 function truncateOutput(output: string, maxChars?: number): string {
@@ -141,10 +143,7 @@ export async function executeSubagentRequest(
 	try {
 		plan = normalizeSubagentRequest(params);
 	} catch (error) {
-		const scope: AgentScope =
-			params.agentScope === "project" || params.agentScope === "both" || params.agentScope === "user"
-				? params.agentScope
-				: "user";
+		const scope = normalizeAgentScope(params.agentScope) ?? "global";
 		const discovery = discoverAgentsImpl(ctx.cwd, scope);
 		const mode = params.chain !== undefined ? "chain" : params.tasks !== undefined ? "parallel" : "single";
 		const message = error instanceof RequestValidationError ? error.message : `Invalid parameters: ${String(error)}`;
@@ -170,14 +169,15 @@ export async function executeSubagentPlan(
 	const confirmProjectAgents = options.deps?.confirmProjectAgents ?? ctx.ui.confirm.bind(ctx.ui);
 	const { signal, onUpdate } = options;
 
-	const discovery = discoverAgentsImpl(ctx.cwd, plan.agentScope);
+	const planAgentScope = normalizeAgentScope(plan.agentScope) ?? "global";
+	const discovery = discoverAgentsImpl(ctx.cwd, planAgentScope);
 	const agents = discovery.agents;
 
 	const makeDetails =
 		(mode: "single" | "parallel" | "chain") =>
 		(results: SingleResult[]): SubagentDetails => ({
 			mode,
-			agentScope: plan.agentScope,
+			agentScope: planAgentScope,
 			projectAgentsDir: discovery.projectAgentsDir,
 			invalidAgents: discovery.invalidAgents,
 			results,
@@ -209,7 +209,7 @@ export async function executeSubagentPlan(
 				content: [
 					{
 						type: "text",
-						text: `Canceled: project-local agents require interactive confirmation in this mode. Set confirmProjectAgents: false only for trusted repositories.\n${diagnostics}`,
+						text: `Canceled: repo-local agents require interactive confirmation in this mode. Set confirmProjectAgents: false only for trusted repositories.\n${diagnostics}`,
 					},
 				],
 				details: makeDetails(plan.mode)([]),
@@ -218,12 +218,12 @@ export async function executeSubagentPlan(
 		}
 
 		const ok = await confirmProjectAgents(
-			"Run project-local agents?",
-			`${diagnostics}\n\nProject agents are repo-controlled. Only continue for trusted repositories.`,
+			"Run repo-local agents?",
+			`${diagnostics}\n\nRepo agents are repo-controlled. Only continue for trusted repositories.`,
 		);
 		if (!ok) {
 			return {
-				content: [{ type: "text", text: "Canceled: project-local agents not approved." }],
+				content: [{ type: "text", text: "Canceled: repo-local agents not approved." }],
 				details: makeDetails(plan.mode)([]),
 				isError: true,
 			};

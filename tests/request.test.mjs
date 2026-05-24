@@ -8,13 +8,22 @@ const { normalizeSubagentRequest, RequestValidationError } = await jiti.import("
 test("normalizes single, parallel, and chain requests", () => {
 	assert.deepEqual(normalizeSubagentRequest({ agent: "reviewer", task: "check" }), {
 		mode: "single",
-		agentScope: "user",
+		agentScope: "global",
 		confirmProjectAgents: true,
 		steps: [{ agent: "reviewer", task: "check", cwd: undefined }],
 	});
 
 	assert.equal(normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x" }] }).mode, "parallel");
 	assert.deepEqual(normalizeSubagentRequest({ chain: [{ agent: "a", task: "x" }] }).steps[0].step, 1);
+});
+
+test("normalizes preferred agentScope names and legacy aliases", () => {
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "global" }).agentScope, "global");
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "repo" }).agentScope, "repo");
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "global+repo" }).agentScope, "global+repo");
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "user" }).agentScope, "global");
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "project" }).agentScope, "repo");
+	assert.equal(normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "both" }).agentScope, "global+repo");
 });
 
 test("normalizes optional per-task runtime controls", () => {
@@ -51,7 +60,7 @@ test("rejects invalid task invariants", () => {
 });
 
 test("rejects invalid agentScope and whitespace cwd values", () => {
-	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "global" }), /agentScope/);
+	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", agentScope: "workspace" }), /agentScope/);
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", cwd: "   " }), /single\.cwd/);
 	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", cwd: "\n" }] }), /tasks\[0\]\.cwd/);
 	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", cwd: "\t" }] }), /chain\[0\]\.cwd/);

@@ -35,7 +35,7 @@ test("builds a collapsed single-result display model", () => {
 	);
 
 	assert.equal(stringifyResultDisplayModel(model), [
-		"success reviewer (user)",
+		"success reviewer (global)",
 		"## reviewer success",
 		"tool:read",
 		"Looks good",

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.0 - 2026-05-24
+
+SemVer impact: minor.
+
+- Prefer `global`, `repo`, and `global+repo` for `agentScope` schema/docs/display while preserving `user`, `project`, and `both` as aliases.
+
 ## 1.2.1 - 2026-05-24
 
 SemVer impact: patch.
