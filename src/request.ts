@@ -75,10 +75,6 @@ function validateOutputMode(value: unknown, label: string): OutputMode | undefin
 	return value;
 }
 
-function runtimeControlsProvided(item: RuntimeControls): boolean {
-	return fieldProvided(item.timeoutMs) || fieldProvided(item.maxOutputChars) || fieldProvided(item.outputMode);
-}
-
 function validateRuntimeControls(item: RuntimeControls, label: string): RuntimeControls {
 	const controls: RuntimeControls = {};
 	const timeoutMs = validatePositiveInteger(item.timeoutMs, `${label}.timeoutMs`, MAX_TIMEOUT_MS);
@@ -90,17 +86,40 @@ function validateRuntimeControls(item: RuntimeControls, label: string): RuntimeC
 	return controls;
 }
 
+function validateCwd(value: unknown, label: string): string | undefined {
+	if (!fieldProvided(value)) return undefined;
+	if (!hasNonEmptyString(value)) {
+		throw new RequestValidationError(`${label} must be a non-empty string when provided.`);
+	}
+	return value;
+}
+
+function validateRequestDefaults(params: SubagentParams): RuntimeControls & { cwd?: string } {
+	const defaults: RuntimeControls & { cwd?: string } = { ...validateRuntimeControls(params, "defaults") };
+	const cwd = validateCwd(params.cwd, "defaults.cwd");
+	if (cwd !== undefined) defaults.cwd = cwd;
+	return defaults;
+}
+
+function withDefaults(item: RequestTask, defaults: RuntimeControls & { cwd?: string }): RequestTask {
+	return {
+		...item,
+		cwd: fieldProvided(item.cwd) ? item.cwd : defaults.cwd,
+		timeoutMs: fieldProvided(item.timeoutMs) ? item.timeoutMs : defaults.timeoutMs,
+		maxOutputChars: fieldProvided(item.maxOutputChars) ? item.maxOutputChars : defaults.maxOutputChars,
+		outputMode: fieldProvided(item.outputMode) ? item.outputMode : defaults.outputMode,
+	};
+}
+
 function validateTaskItem(item: RequestTask, label: string): ExecutionStep {
 	if (!hasNonEmptyString(item.agent)) throw new RequestValidationError(`${label}.agent must be a non-empty string.`);
 	if (!hasNonEmptyString(item.task)) throw new RequestValidationError(`${label}.task must be a non-empty string.`);
-	if (fieldProvided(item.cwd) && !hasNonEmptyString(item.cwd)) {
-		throw new RequestValidationError(`${label}.cwd must be a non-empty string when provided.`);
-	}
-	return { agent: item.agent, task: item.task, cwd: item.cwd, ...validateRuntimeControls(item, label) };
+	const cwd = validateCwd(item.cwd, `${label}.cwd`);
+	return { agent: item.agent, task: item.task, cwd, ...validateRuntimeControls(item, label) };
 }
 
 export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan {
-	const hasSingleFields = fieldProvided(params.agent) || fieldProvided(params.task) || fieldProvided(params.cwd) || runtimeControlsProvided(params);
+	const hasSingleFields = fieldProvided(params.agent) || fieldProvided(params.task);
 	const hasParallelField = fieldProvided(params.tasks);
 	const hasChainField = fieldProvided(params.chain);
 	const modeCount = Number(hasSingleFields) + Number(hasParallelField) + Number(hasChainField);
@@ -125,6 +144,8 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 		};
 	}
 
+	const defaults = validateRequestDefaults(params);
+
 	if (hasParallelField) {
 		if (!Array.isArray(params.tasks)) throw new RequestValidationError("tasks must be an array.");
 		if (params.tasks.length === 0) throw new RequestValidationError("tasks must contain at least one task.");
@@ -135,7 +156,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 			mode: "parallel",
 			agentScope,
 			confirmProjectAgents,
-			steps: params.tasks.map((item, index) => validateTaskItem(item, `tasks[${index}]`)),
+			steps: params.tasks.map((item, index) => validateTaskItem(withDefaults(item, defaults), `tasks[${index}]`)),
 		};
 	}
 
@@ -145,7 +166,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 		mode: "chain",
 		agentScope,
 		confirmProjectAgents,
-		steps: params.chain.map((item, index) => ({ ...validateTaskItem(item, `chain[${index}]`), step: index + 1 })),
+		steps: params.chain.map((item, index) => ({ ...validateTaskItem(withDefaults(item, defaults), `chain[${index}]`), step: index + 1 })),
 	};
 }
 

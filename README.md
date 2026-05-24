@@ -89,7 +89,7 @@ Each single task, parallel task, or chain step can opt into runtime controls:
 - `maxOutputChars` bounds returned tool-result text for that step.
 - `outputMode: "summary"` returns a status/preview; `"full"` returns the step output subject to any cap. Parallel mode remains summarized by default unless a task asks for `"full"`.
 
-For parallel and chain modes, put these fields on each item in `tasks[]` or `chain[]`. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
+For parallel and chain modes, top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode` act as defaults for every item in `tasks[]` or `chain[]`; per-item fields override those defaults. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
 
 ## Reviewer scout evidence
 
@@ -112,7 +112,7 @@ No special reviewer agent is required. If a reviewer is allowed to use `subagent
 
 Agent discovery is rooted at Pi's current workspace (`ctx.cwd`). Repo-local agents are discovered from the nearest `.pi/agents` directory at or above that workspace, not from a per-run execution `cwd`.
 
-Execution uses the step `cwd` when provided, otherwise it falls back to the current workspace. In single mode this is the top-level `cwd`; in parallel and chain mode it is each task/step's `cwd`.
+Execution uses the step `cwd` when provided, otherwise it falls back to the top-level `cwd` default and then the current workspace. In single mode this is the top-level `cwd`; in parallel and chain mode each task/step can override it.
 
 Prefer absolute `cwd` values. The extension validates that `cwd` is a non-empty string but does not resolve or normalize it before passing it to the child Pi process.
 

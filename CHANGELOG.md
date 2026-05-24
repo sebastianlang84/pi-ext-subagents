@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.1 - 2026-05-24
+
+SemVer impact: patch.
+
+- Allow top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode` to act as defaults for parallel tasks and chain steps, with per-item overrides.
+
 ## 1.3.0 - 2026-05-24
 
 SemVer impact: minor.

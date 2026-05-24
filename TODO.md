@@ -2,13 +2,6 @@
 
 Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git history, or release notes — not as checked-off TODO entries.
 
-## P1 (Review follow-ups)
-
-1. [ ] Clarify or redesign top-level `cwd` and runtime controls for parallel/chain requests.
-   - Finding: the public schema exposes top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode`, but request normalization counts those as single-mode fields, so `{ cwd, tasks: [...] }` or top-level controls plus `chain` are rejected as mixed modes.
-   - Impact: schema-visible fields are easy to misuse for parallel/chain defaults.
-   - Next: either document/describe them as single-mode-only in prompt-facing schema text, or intentionally support them as defaults for parallel/chain items.
-
 ## P2 (Packaging / release hygiene)
 
 1. [ ] Decide whether `.pi/agents` should remain in the package `files` allowlist.

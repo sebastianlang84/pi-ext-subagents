@@ -308,6 +308,46 @@ test("parallel mode applies per-task output controls", async () => {
 	assert.match(result.content[0].text, /\[runner\] completed: output:full/);
 });
 
+test("parallel mode applies top-level cwd and runtime defaults", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-defaults-"));
+	const project = path.join(root, "repo");
+	const defaultCwd = path.join(root, "default-run");
+	const overrideCwd = path.join(root, "override-run");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	for (const dir of [defaultCwd, overrideCwd]) fs.mkdirSync(dir, { recursive: true });
+	writeProjectAgent(project, "runner");
+	const calls = [];
+	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
+
+	const result = await tool.execute(
+		"id",
+		{
+			agentScope: "project",
+			confirmProjectAgents: false,
+			cwd: defaultCwd,
+			timeoutMs: 50,
+			maxOutputChars: 10,
+			outputMode: "summary",
+			tasks: [
+				{ agent: "runner", task: "one" },
+				{ agent: "runner", task: "two", cwd: overrideCwd, maxOutputChars: 20 },
+			],
+		},
+		undefined,
+		undefined,
+		testCtx(project),
+	);
+
+	assert.equal(result.isError, undefined);
+	assert.deepEqual(
+		calls.sort((left, right) => left.task.localeCompare(right.task)),
+		[
+			{ defaultCwd: project, cwd: defaultCwd, agentName: "runner", task: "one", step: undefined, timeoutMs: 50, maxOutputChars: 10, outputMode: "summary" },
+			{ defaultCwd: project, cwd: overrideCwd, agentName: "runner", task: "two", step: undefined, timeoutMs: 50, maxOutputChars: 20, outputMode: "summary" },
+		],
+	);
+});
+
 test("chain mode discovers project agents from context cwd and passes each step cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-chain-"));
 	const project = path.join(root, "repo");

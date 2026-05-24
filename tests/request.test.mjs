@@ -40,6 +40,30 @@ test("normalizes optional per-task runtime controls", () => {
 	assert.deepEqual(normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "full" }] }).steps[0].outputMode, "full");
 });
 
+test("applies top-level cwd and runtime controls as parallel and chain defaults", () => {
+	assert.deepEqual(
+		normalizeSubagentRequest({
+			cwd: "/repo",
+			timeoutMs: 1000,
+			maxOutputChars: 80,
+			outputMode: "summary",
+			tasks: [
+				{ agent: "a", task: "x" },
+				{ agent: "b", task: "y", cwd: "/other", timeoutMs: 5, outputMode: "full" },
+			],
+		}).steps,
+		[
+			{ agent: "a", task: "x", cwd: "/repo", timeoutMs: 1000, maxOutputChars: 80, outputMode: "summary" },
+			{ agent: "b", task: "y", cwd: "/other", timeoutMs: 5, maxOutputChars: 80, outputMode: "full" },
+		],
+	);
+
+	assert.deepEqual(
+		normalizeSubagentRequest({ cwd: "/repo", maxOutputChars: 20, chain: [{ agent: "a", task: "x" }] }).steps[0],
+		{ agent: "a", task: "x", cwd: "/repo", maxOutputChars: 20, step: 1 },
+	);
+});
+
 test("rejects mixed modes, empty tasks, and incomplete single mode consistently", () => {
 	for (const params of [
 		{ agent: "a", task: "x", tasks: [{ agent: "b", task: "y" }] },
@@ -73,4 +97,5 @@ test("rejects invalid runtime controls", () => {
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", outputMode: "verbose" }), /single\.outputMode/);
 	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 1.5 }] }), /tasks\[0\]\.timeoutMs/);
 	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "verbose" }] }), /chain\[0\]\.outputMode/);
+	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x" }], timeoutMs: 0 }), /defaults\.timeoutMs/);
 });
