@@ -91,6 +91,91 @@ test("parses partial JSON lines, ignores malformed events, and aggregates usage"
 	assert.match(result.stderr, /Ignored malformed JSON/);
 });
 
+test("fails bounded when stdout buffer exceeds the internal cap", async () => {
+	const fake = new FakeProcess();
+	const promise = startRun(fake, { maxStdoutBufferChars: 10 });
+	setImmediate(() => {
+		fake.stdout.emit("data", "x".repeat(11));
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "error");
+	assert.match(result.errorMessage, /stdout buffer exceeded 10 chars/);
+	assert.match(result.stderr, /stdout buffer exceeded 10 chars/);
+	assert.deepEqual(fake.kills, ["SIGTERM"]);
+});
+
+test("does not apply stdout buffer cap to completed JSON lines in one chunk", async () => {
+	const fake = new FakeProcess();
+	const promise = startRun(fake, { maxStdoutBufferChars: 10 });
+	setImmediate(() => {
+		fake.stdout.emit(
+			"data",
+			JSON.stringify({ type: "message_end", message: message("one") }) + "\n" +
+				JSON.stringify({ type: "message_end", message: message("two") }) + "\n",
+		);
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(getFinalOutput(result.messages), "two");
+	assert.equal(result.messages.length, 2);
+});
+
+test("fails before parsing oversized stdout JSON lines", async () => {
+	const fake = new FakeProcess();
+	const promise = startRun(fake, { maxJsonLineChars: 20 });
+	setImmediate(() => {
+		fake.stdout.emit("data", `${JSON.stringify({ type: "message_end", message: message("too large") })}\n`);
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "error");
+	assert.match(result.errorMessage, /stdout JSON line exceeded 20 chars/);
+	assert.equal(result.messages.length, 0);
+});
+
+test("preserves stdout parse errors when closing with residual buffered output", async () => {
+	const fake = new FakeProcess();
+	const validLine = JSON.stringify({ type: "message_end", message: message("ok") });
+	const promise = startRun(fake, { maxJsonLineChars: validLine.length + 5 });
+	setImmediate(() => {
+		fake.stdout.emit("data", validLine);
+		fake.stdout.emit("data", `${"x".repeat(10)}\n`);
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 1);
+	assert.equal(result.stopReason, "error");
+	assert.match(result.errorMessage, /stdout JSON line exceeded/);
+	assert.equal(result.messages.length, 0);
+});
+
+test("truncates oversized stored messages while preserving usage", async () => {
+	const fake = new FakeProcess();
+	const promise = startRun(fake, { maxStoredMessageChars: 80 });
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "message_end", message: message("x".repeat(500)) }) + "\n");
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.messages.length, 1);
+	assert.ok(JSON.stringify(result.messages[0]).length <= 80);
+	assert.ok(getFinalOutput(result.messages).length < 200);
+	assert.match(getFinalOutput(result.messages), /truncated/);
+	assert.match(result.stderr, /Subagent message truncated after 80 chars/);
+	assert.equal(result.usage.input, 10);
+	assert.equal(result.usage.output, 3);
+});
+
 test("passes the task prompt on stdin instead of argv", async () => {
 	const fake = new FakeProcess();
 	let spawnArgs;

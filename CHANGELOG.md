@@ -15,6 +15,7 @@ SemVer impact: minor.
 - Remove the experimental `context_scout` wrapper from the public tool surface and keep reviewer evidence lookup on the normal `subagent` → `scout` workflow.
 - Add optional per-task runtime controls for `subagent`: `timeoutMs`, `maxOutputChars`, and `outputMode` for single, parallel, and chain steps.
 - Send subagent task prompts to child Pi processes over stdin instead of argv to reduce process-list exposure and argv-length risk.
+- Bound child stdout buffering, JSON event size, and stored message size to prevent oversized subagent output from bloating parent runs.
 
 ## 1.1.2 - 2026-05-16
 

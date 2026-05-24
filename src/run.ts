@@ -13,7 +13,10 @@ const DEFAULT_AGENT_END_GRACE_MS = 2000;
 const DEFAULT_AGENT_END_FORCE_KILL_MS = 1000;
 const DEFAULT_ABORT_FORCE_KILL_MS = 5000;
 const DEFAULT_MAX_STDERR_BYTES = 64 * 1024;
+const DEFAULT_MAX_STDOUT_BUFFER_CHARS = 1024 * 1024;
+const DEFAULT_MAX_JSON_LINE_CHARS = 1024 * 1024;
 const DEFAULT_MAX_STORED_MESSAGES = 200;
+const DEFAULT_MAX_STORED_MESSAGE_CHARS = 64 * 1024;
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export interface UsageStats {
@@ -79,7 +82,10 @@ export interface RunSingleAgentOptions {
 	agentEndForceKillMs?: number;
 	abortForceKillMs?: number;
 	maxStderrBytes?: number;
+	maxStdoutBufferChars?: number;
+	maxJsonLineChars?: number;
 	maxStoredMessages?: number;
+	maxStoredMessageChars?: number;
 	timeoutMs?: number;
 	maxOutputChars?: number;
 	outputMode?: "summary" | "full";
@@ -95,6 +101,65 @@ function appendLimited(current: string, chunk: string, maxBytes: number, label: 
 	const remaining = maxBytes - current.length;
 	const suffix = `\n[${label} truncated after ${maxBytes} bytes]\n`;
 	return current + chunk.slice(0, Math.max(0, remaining - suffix.length)) + suffix;
+}
+
+function positiveLimit(value: number | undefined, fallback: number): number {
+	return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function serializedLength(value: unknown): number {
+	try {
+		const serialized = JSON.stringify(value);
+		return typeof serialized === "string" ? serialized.length : 0;
+	} catch {
+		return Number.POSITIVE_INFINITY;
+	}
+}
+
+function truncateText(text: string, maxChars: number): string {
+	if (text.length <= maxChars) return text;
+	if (maxChars <= 3) return text.slice(0, Math.max(0, maxChars));
+	return `${text.slice(0, maxChars - 3)}...`;
+}
+
+function isProcessFailureStopReason(stopReason?: string): boolean {
+	return stopReason === "error" || stopReason === "aborted" || stopReason === "timeout";
+}
+
+function limitMessageForStorage(
+	result: SingleResult,
+	message: Message,
+	maxStoredMessageChars: number,
+	maxStderrBytes: number,
+): Message {
+	if (serializedLength(message) <= maxStoredMessageChars) return message;
+
+	result.stderr = appendLimited(
+		result.stderr,
+		`Subagent message truncated after ${maxStoredMessageChars} chars.\n`,
+		maxStderrBytes,
+		"stderr",
+	);
+
+	const content = Array.isArray((message as any).content) ? (message as any).content : [];
+	const textBudget = Math.max(0, maxStoredMessageChars - 200);
+	const textParts = content.filter((part: any) => part?.type === "text");
+	const perTextBudget = textParts.length > 0 ? Math.max(0, Math.floor(textBudget / textParts.length)) : 0;
+	const truncated = {
+		...(message as any),
+		content: content.map((part: any) =>
+			part?.type === "text" ? { ...part, text: truncateText(String(part.text ?? ""), perTextBudget) } : part,
+		),
+	} as Message;
+	if (serializedLength(truncated) <= maxStoredMessageChars) return truncated;
+
+	const fallback = { role: (message as any).role ?? "assistant", content: [{ type: "text", text: "" }] };
+	const fallbackOverhead = serializedLength(fallback);
+	const fallbackText = `[truncated after ${maxStoredMessageChars} chars]`;
+	return {
+		role: fallback.role,
+		content: [{ type: "text", text: truncateText(fallbackText, Math.max(0, maxStoredMessageChars - fallbackOverhead)) }],
+	} as Message;
 }
 
 export function getFinalOutput(messages: Message[]): string {
@@ -133,7 +198,7 @@ export function getPiInvocation(args: string[]): { command: string; args: string
 	return { command: "pi", args };
 }
 
-function addMessageToResult(result: SingleResult, message: Message, maxStoredMessages: number) {
+function addMessageToResult(result: SingleResult, message: Message, maxStoredMessages: number, maxStderrBytes: number) {
 	if (result.messages.length < maxStoredMessages) {
 		result.messages.push(message);
 		return;
@@ -142,7 +207,7 @@ function addMessageToResult(result: SingleResult, message: Message, maxStoredMes
 		result.stderr = appendLimited(
 			result.stderr,
 			"Subagent message output limit reached; later message events were ignored.\n",
-			DEFAULT_MAX_STDERR_BYTES,
+			maxStderrBytes,
 			"stderr",
 		);
 	}
@@ -161,14 +226,17 @@ function ingestAssistantUsage(result: SingleResult, msg: Message) {
 		result.usage.contextTokens = usage.totalTokens || 0;
 	}
 	if (!result.model && msg.model) result.model = msg.model;
-	if (msg.stopReason) result.stopReason = msg.stopReason;
-	if (msg.errorMessage) result.errorMessage = msg.errorMessage;
+	if (msg.stopReason && !isProcessFailureStopReason(result.stopReason)) result.stopReason = msg.stopReason;
+	if (msg.errorMessage && !isProcessFailureStopReason(result.stopReason)) result.errorMessage = msg.errorMessage;
 }
 
 export async function runSingleAgent(options: RunSingleAgentOptions): Promise<SingleResult> {
 	const agent = options.agents.find((a) => a.name === options.agentName);
-	const maxStderrBytes = options.maxStderrBytes ?? DEFAULT_MAX_STDERR_BYTES;
-	const maxStoredMessages = options.maxStoredMessages ?? DEFAULT_MAX_STORED_MESSAGES;
+	const maxStderrBytes = positiveLimit(options.maxStderrBytes, DEFAULT_MAX_STDERR_BYTES);
+	const maxStdoutBufferChars = positiveLimit(options.maxStdoutBufferChars, DEFAULT_MAX_STDOUT_BUFFER_CHARS);
+	const maxJsonLineChars = positiveLimit(options.maxJsonLineChars, DEFAULT_MAX_JSON_LINE_CHARS);
+	const maxStoredMessages = positiveLimit(options.maxStoredMessages, DEFAULT_MAX_STORED_MESSAGES);
+	const maxStoredMessageChars = positiveLimit(options.maxStoredMessageChars, DEFAULT_MAX_STORED_MESSAGE_CHARS);
 
 	if (!agent) {
 		const available = options.agents.map((a) => `"${a.name}"`).join(", ") || "none";
@@ -254,8 +322,40 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				resolve(code);
 			};
 
+			const scheduleTimer = options.now ?? setTimeout;
+
+			const recordProcessError = (message: string) => {
+				if (isProcessFailureStopReason(currentResult.stopReason)) return;
+				currentResult.stopReason = "error";
+				currentResult.errorMessage = message;
+				currentResult.stderr = appendLimited(currentResult.stderr, `${message}\n`, maxStderrBytes, "stderr");
+			};
+
+			const failAndTerminate = (message: string) => {
+				if (resolved) return;
+				recordProcessError(message);
+				if (childClosed) {
+					finish(1);
+					return;
+				}
+				proc.kill("SIGTERM");
+				if (!abortFallbackTimer) {
+					abortFallbackTimer = scheduleTimer(() => {
+						if (!childClosed && !resolved) {
+							proc.kill("SIGKILL");
+							finish(1);
+						}
+					}, options.abortForceKillMs ?? DEFAULT_ABORT_FORCE_KILL_MS);
+					abortFallbackTimer.unref?.();
+				}
+			};
+
 			const processLine = (line: string) => {
 				if (!line.trim()) return;
+				if (line.length > maxJsonLineChars) {
+					failAndTerminate(`Subagent stdout JSON line exceeded ${maxJsonLineChars} chars.`);
+					return;
+				}
 				let event: any;
 				try {
 					event = JSON.parse(line);
@@ -271,13 +371,20 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 
 				if (event.type === "message_end" && event.message) {
 					const msg = event.message as Message;
-					addMessageToResult(currentResult, msg, maxStoredMessages);
+					const storedMsg = currentResult.messages.length < maxStoredMessages
+						? limitMessageForStorage(currentResult, msg, maxStoredMessageChars, maxStderrBytes)
+						: msg;
+					addMessageToResult(currentResult, storedMsg, maxStoredMessages, maxStderrBytes);
 					ingestAssistantUsage(currentResult, msg);
 					emitUpdate();
 				}
 
 				if (event.type === "tool_result_end" && event.message) {
-					addMessageToResult(currentResult, event.message as Message, maxStoredMessages);
+					const msg = event.message as Message;
+					const storedMsg = currentResult.messages.length < maxStoredMessages
+						? limitMessageForStorage(currentResult, msg, maxStoredMessageChars, maxStderrBytes)
+						: msg;
+					addMessageToResult(currentResult, storedMsg, maxStoredMessages, maxStderrBytes);
 					emitUpdate();
 				}
 
@@ -286,8 +393,6 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 					terminateAfterFinalEvent();
 				}
 			};
-
-			const scheduleTimer = options.now ?? setTimeout;
 
 			const terminateAfterFinalEvent = () => {
 				if (finalEventSeen || childClosed) return;
@@ -316,11 +421,30 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			};
 
 			proc.stdout.on("data", (data) => {
-				if (resolved) return;
-				buffer += data.toString();
-				const lines = buffer.split("\n");
-				buffer = lines.pop() || "";
-				for (const line of lines) processLine(line);
+				if (resolved || isProcessFailureStopReason(currentResult.stopReason)) return;
+				const chunk = data.toString();
+				const parts = chunk.split("\n");
+				if (parts.length === 1) {
+					if (buffer.length + chunk.length > maxStdoutBufferChars) {
+						buffer = "";
+						failAndTerminate(`Subagent stdout buffer exceeded ${maxStdoutBufferChars} chars.`);
+						return;
+					}
+					buffer += chunk;
+					return;
+				}
+
+				processLine(buffer + parts[0]);
+				if (resolved || isProcessFailureStopReason(currentResult.stopReason)) return;
+				for (const line of parts.slice(1, -1)) {
+					processLine(line);
+					if (resolved || isProcessFailureStopReason(currentResult.stopReason)) return;
+				}
+				buffer = parts[parts.length - 1] || "";
+				if (buffer.length > maxStdoutBufferChars) {
+					buffer = "";
+					failAndTerminate(`Subagent stdout buffer exceeded ${maxStdoutBufferChars} chars.`);
+				}
 			});
 
 			proc.stderr.on("data", (data) => {
@@ -330,7 +454,17 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 
 			proc.on("close", (code) => {
 				childClosed = true;
-				if (buffer.trim()) processLine(buffer);
+				if (isProcessFailureStopReason(currentResult.stopReason)) {
+					finish(1);
+					return;
+				}
+				if (buffer.trim()) {
+					processLine(buffer);
+					if (isProcessFailureStopReason(currentResult.stopReason)) {
+						finish(1);
+						return;
+					}
+				}
 				finish(code ?? 0);
 			});
 
@@ -390,7 +524,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 			}
 		});
 
-		currentResult.exitCode = (wasAborted || timedOut) && exitCode === 0 ? 1 : exitCode;
+		currentResult.exitCode = (wasAborted || timedOut || currentResult.stopReason === "error") && exitCode === 0 ? 1 : exitCode;
 		if (timedOut) {
 			currentResult.stopReason = "timeout";
 			currentResult.errorMessage ||= `Subagent timed out after ${options.timeoutMs}ms.`;

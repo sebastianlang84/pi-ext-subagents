@@ -208,6 +208,8 @@ Malformed JSON stdout events from subagent JSON mode are ignored so later valid 
 
 Aborted subagents and subprocess spawn failures are returned as structured result details (`stopReason`, diagnostics, and non-success tool results) so callers can inspect partial output instead of receiving an unstructured thrown error.
 
+Child stdout buffering, JSON event size, and stored message size are internally bounded. Oversized stdout events fail the subagent with diagnostics; oversized stored messages are truncated with diagnostics while preserving usage metadata when available.
+
 ## Token-injection budget
 
 Run the static prompt-footprint gate before increasing tool descriptions, parameter descriptions, `promptSnippet`, or `promptGuidelines`:
