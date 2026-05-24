@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.0 - 2026-05-24
+
 SemVer impact: minor.
 
 - Centralize subagent result classification/diagnostics/parallel-summary policy and reuse it for API and display error semantics, including timeout stop reasons.
