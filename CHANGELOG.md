@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.4 - 2026-05-24
+
+SemVer impact: patch.
+
+- Render single-subagent results inline and hide default global provenance to reduce repeated TUI labels.
+
 ## 1.3.3 - 2026-05-24
 
 SemVer impact: patch.

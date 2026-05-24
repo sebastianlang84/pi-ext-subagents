@@ -5,10 +5,10 @@ import { createJiti } from "jiti";
 const jiti = createJiti(import.meta.url);
 const { buildResultDisplayModel, stringifyResultDisplayModel } = await jiti.import("../src/display.ts");
 
-function result(agent, text, exitCode = 0) {
+function result(agent, text, exitCode = 0, agentSource = "user") {
 	return {
 		agent,
-		agentSource: "user",
+		agentSource,
 		task: `task-${agent}`,
 		exitCode,
 		stderr: "",
@@ -29,18 +29,49 @@ function result(agent, text, exitCode = 0) {
 
 test("builds a collapsed single-result display model", () => {
 	const model = buildResultDisplayModel(
-		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "user", projectAgentsDir: null, results: [result("reviewer", "Looks good")] } },
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global", projectAgentsDir: null, results: [result("reviewer", "Looks good")] } },
 		false,
 		10,
 	);
 
 	assert.equal(stringifyResultDisplayModel(model), [
-		"success reviewer (global)",
-		"## reviewer success",
+		"success reviewer",
 		"tool:read",
 		"Looks good",
 		"usage: 1 turn ↑1.0k ↓25 $0.0100 ctx:1.0k model-a",
 	].join("\n"));
+	assert.equal(model.sections[0].presentation, "inline");
+});
+
+test("single-result display exposes source only when diagnostically useful", () => {
+	const repoModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "repo", projectAgentsDir: null, results: [result("reviewer", "Looks good", 0, "project")] } },
+		false,
+		10,
+	);
+	assert.equal(repoModel.header, "reviewer (repo)");
+
+	const ambiguousModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global+repo", projectAgentsDir: null, results: [result("reviewer", "Looks good")] } },
+		false,
+		10,
+	);
+	assert.equal(ambiguousModel.header, "reviewer (global via global+repo)");
+
+	const unknownModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global", projectAgentsDir: null, results: [result("reviewer", "Looks good", 0, "unknown")] } },
+		false,
+		10,
+	);
+	assert.equal(unknownModel.header, "reviewer (unknown)");
+
+	const errorModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global", projectAgentsDir: null, results: [result("reviewer", "Failed", 1)] } },
+		false,
+		10,
+	);
+	assert.equal(errorModel.header, "reviewer");
+	assert.equal(errorModel.sections[0].error, "Failed");
 });
 
 test("builds parallel display states for running, failed, and completed results", () => {
@@ -76,6 +107,7 @@ test("builds parallel display states for running, failed, and completed results"
 	assert.equal(completedModel.sections[0].error, "subagent exploded");
 	assert.equal(completedModel.sections[1].error, "stderr diagnostic");
 	assert.match(stringifyResultDisplayModel(completedModel), /## bad error/);
+	assert.equal(completedModel.sections[0].presentation, "section");
 
 	const stoppedModel = buildResultDisplayModel(
 		{ content: [{ type: "text", text: "done" }], details: { mode: "parallel", agentScope: "user", projectAgentsDir: null, results: [stoppedWithError, passed] } },

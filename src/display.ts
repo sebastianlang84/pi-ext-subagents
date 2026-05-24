@@ -1,6 +1,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
-import { formatAgentSource } from "./agents.js";
+import { formatAgentSource, normalizeAgentScope } from "./agents.js";
 import { getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
 import { getFinalOutput, type SingleResult, type SubagentDetails } from "./run.js";
 
@@ -8,6 +8,7 @@ export type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; n
 export type DisplayTone = "success" | "error" | "warning" | "running";
 
 export interface ResultDisplaySection {
+	presentation: "inline" | "section";
 	heading?: string;
 	status?: DisplayTone;
 	meta?: string;
@@ -87,13 +88,28 @@ function formatResultAgentSource(source: SingleResult["agentSource"]): "global" 
 	return source === "unknown" ? "unknown" : formatAgentSource(source);
 }
 
-function resultSection(result: SingleResult, expanded: boolean, limit?: number): ResultDisplaySection {
+function resultSourceSuffix(result: SingleResult, details: SubagentDetails, status: DisplayTone): string | undefined {
+	const source = formatResultAgentSource(result.agentSource);
+	const scope = normalizeAgentScope(details.agentScope) ?? "global";
+	if (scope === "global+repo") return `${source} via global+repo`;
+	if (source !== "global") return source;
+	return undefined;
+}
+
+function resultHeading(result: SingleResult, details: SubagentDetails, status: DisplayTone): string {
+	const label = result.step ? `Step ${result.step}: ${result.agent}` : result.agent;
+	const suffix = resultSourceSuffix(result, details, status);
+	return suffix ? `${label} (${suffix})` : label;
+}
+
+function resultSection(result: SingleResult, details: SubagentDetails, expanded: boolean, limit?: number): ResultDisplaySection {
 	const allItems = getDisplayItems(result.messages);
 	const { items, skippedItems } = sliceItems(allItems, expanded ? undefined : limit);
 	const status = statusForResult(result);
 	const error = status === "error" ? getFailureDiagnostic(result) || undefined : undefined;
 	return {
-		heading: result.step ? `Step ${result.step}: ${result.agent}` : result.agent,
+		presentation: details.mode === "single" ? "inline" : "section",
+		heading: resultHeading(result, details, status),
 		status,
 		meta: formatResultAgentSource(result.agentSource),
 		task: expanded ? result.task : undefined,
@@ -136,9 +152,9 @@ export function buildResultDisplayModel(
 
 	if (details.mode === "single" && details.results.length === 1) {
 		const r = details.results[0];
-		const section = resultSection(r, expanded, collapsedItemCount);
+		const section = resultSection(r, details, expanded, collapsedItemCount);
 		return {
-			header: `${r.agent} (${formatResultAgentSource(r.agentSource)})`,
+			header: section.heading,
 			tone: section.status,
 			sections: [section],
 			expandHint: !expanded && getDisplayItems(r.messages).length > collapsedItemCount,
@@ -151,7 +167,7 @@ export function buildResultDisplayModel(
 		const successCount = statuses.filter((status) => status === "success").length;
 		const runningCount = statuses.filter((status) => status === "running").length;
 		const failCount = statuses.filter((status) => status === "error").length;
-		const sections = details.results.map((r) => resultSection(r, expanded, expanded ? undefined : 5));
+		const sections = details.results.map((r) => resultSection(r, details, expanded, expanded ? undefined : 5));
 		return {
 			header: `chain ${successCount}/${details.results.length} steps`,
 			tone: runningCount > 0 ? "running" : failCount > 0 ? "error" : "success",
@@ -170,7 +186,7 @@ export function buildResultDisplayModel(
 	return {
 		header: `parallel ${running > 0 ? `${done}/${details.results.length} done, ${running} running` : `${successCount}/${details.results.length} tasks`}`,
 		tone: running > 0 ? "running" : failCount > 0 ? "warning" : "success",
-		sections: details.results.map((r) => resultSection(r, expanded && running === 0, expanded ? undefined : 5)),
+		sections: details.results.map((r) => resultSection(r, details, expanded && running === 0, expanded ? undefined : 5)),
 		footer: running > 0 ? undefined : formatUsageStats(aggregateUsage(details.results)) || undefined,
 		expandHint: !expanded,
 		expanded,
@@ -181,7 +197,7 @@ export function stringifyResultDisplayModel(model: ResultDisplayModel): string {
 	if (model.emptyText) return model.emptyText;
 	const lines = [`${model.tone ?? ""} ${model.header ?? ""}`.trim()];
 	for (const section of model.sections) {
-		lines.push(`## ${section.heading ?? "output"} ${section.status ?? ""}`.trim());
+		if (section.presentation === "section") lines.push(`## ${section.heading ?? "output"} ${section.status ?? ""}`.trim());
 		if (section.task) lines.push(`task: ${section.task}`);
 		if (section.skippedItems) lines.push(`... ${section.skippedItems} earlier items`);
 		for (const item of section.items) lines.push(item.type === "text" ? item.text : `tool:${item.name}`);

@@ -233,10 +233,12 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 				container.addChild(new Text(`${iconFor(model.tone)} ${theme.fg("toolTitle", theme.bold(model.header ?? "subagent"))}`, 0, 0));
 
 				for (const section of model.sections) {
-					container.addChild(new Spacer(1));
-					container.addChild(
-						new Text(`${theme.fg("muted", "─── ")}${theme.fg("accent", section.heading ?? "output")} ${iconFor(section.status)}`, 0, 0),
-					);
+					if (section.presentation === "section") {
+						container.addChild(new Spacer(1));
+						container.addChild(
+							new Text(`${theme.fg("muted", "─── ")}${theme.fg("accent", section.heading ?? "output")} ${iconFor(section.status)}`, 0, 0),
+						);
+					}
 					if (section.task) container.addChild(new Text(theme.fg("muted", "Task: ") + theme.fg("dim", section.task), 0, 0));
 					if (section.error) container.addChild(new Text(theme.fg("error", `Error: ${section.error}`), 0, 0));
 
@@ -267,7 +269,9 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 
 			let text = `${iconFor(model.tone)} ${theme.fg("toolTitle", theme.bold(model.header ?? "subagent"))}`;
 			for (const section of model.sections) {
-				text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", section.heading ?? "output")} ${iconFor(section.status)}`;
+				if (section.presentation === "section") {
+					text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", section.heading ?? "output")} ${iconFor(section.status)}`;
+				}
 				if (section.error) text += `\n${theme.fg("error", `Error: ${section.error}`)}`;
 				if (section.items.length === 0) text += `\n${theme.fg("muted", section.status === "running" ? "(running...)" : "(no output)")}`;
 				else text += `\n${renderDisplayItems(section.items, section.skippedItems)}`;
