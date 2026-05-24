@@ -26,7 +26,7 @@
           ],
           "evidenceKinds": ["api-contract", "call-sites"],
           "evidenceRefs": [
-            { "kind": "api-contract", "path": "docs/plans/reviewer-context-scout.md", "startLine": 18, "endLine": 40 },
+            { "kind": "api-contract", "path": "docs/plans/reviewer-context-scout.md", "startLine": 7, "endLine": 25 },
             { "kind": "call-sites", "path": "package.json", "startLine": 22, "endLine": 26 }
           ],
           "evidenceSeparated": true,
@@ -45,8 +45,8 @@
           ],
           "evidenceKinds": ["tests", "conventions"],
           "evidenceRefs": [
-            { "kind": "tests", "path": "tests/reviewer-context-scout-benchmark.test.mjs", "startLine": 153, "endLine": 174 },
-            { "kind": "conventions", "path": "docs/plans/reviewer-context-scout.md", "startLine": 42, "endLine": 58 }
+            { "kind": "tests", "path": "tests/reviewer-context-scout-benchmark.test.mjs", "startLine": 178, "endLine": 195 },
+            { "kind": "conventions", "path": "docs/plans/reviewer-context-scout.md", "startLine": 27, "endLine": 49 }
           ],
           "evidenceSeparated": true,
           "outputChars": 640,
@@ -63,7 +63,7 @@
           ],
           "evidenceKinds": ["scope"],
           "evidenceRefs": [
-            { "kind": "scope", "path": "docs/plans/reviewer-context-scout.md", "startLine": 71, "endLine": 101 }
+            { "kind": "scope", "path": "docs/plans/reviewer-context-scout.md", "startLine": 68, "endLine": 96 }
           ],
           "evidenceSeparated": true,
           "outputChars": 930,

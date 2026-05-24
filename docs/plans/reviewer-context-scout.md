@@ -99,7 +99,8 @@ Current decision logs:
 
 1. No scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses seeded positive evidence while passing tiny/adversarial cases.
 2. Normal subagent scout flow: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes the current gate with `.pi/agents/reviewer-with-scout.md`.
-3. Historical wrapper trial: `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json` passes the current gate, but is not the product direction.
+
+The former wrapper trial was removed from the active benchmark suite because `context_scout` is not the product direction.
 
 Fixture cases:
 
@@ -126,7 +127,7 @@ Pass thresholds:
 1. Document this architecture decision.
 2. Remove `context_scout` from the public tool surface and delete the env-var gate draft.
 3. Route reviewer evidence tests/docs through `.pi/agents/reviewer-with-scout.md` and normal `subagent` calls.
-4. Keep or archive wrapper benchmark artifacts only as historical research evidence.
+4. Remove wrapper benchmark artifacts from active gates; keep normal subagent scout evidence as the measurable product path.
 5. Improve generic subagent/agent prompt guardrails only where benchmarks show a gap.
 6. Finalize README, changelog, and TODO.
 

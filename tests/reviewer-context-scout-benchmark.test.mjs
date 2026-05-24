@@ -8,7 +8,7 @@ import { buildPromptOnlyPreflightReport, loadJsonFile, scoreBenchmark, scoreDeci
 
 const fixtures = loadJsonFile("docs/benchmarks/reviewer-context-scout-fixtures.json");
 const noScoutDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-no-scout-decisions.json");
-const wrapperDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-wrapper-decisions.json");
+const promptOnlyDecisions = loadJsonFile("docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json");
 
 function decision(fixtureId, overrides = {}) {
 	return { fixtureId, scoutCalls: 0, evidenceKinds: [], outputChars: 0, ...overrides };
@@ -101,11 +101,11 @@ test("no-scout baseline records expected seeded-evidence misses", () => {
 	assert.equal(report.runs[0].groups.adversarial.passRate, 1);
 });
 
-test("context_scout wrapper decision run passes reviewer-scout gate", () => {
-	const report = scoreBenchmark(fixtures, wrapperDecisions);
+test("prompt-only reviewer-with-scout decision run passes reviewer-scout gate", () => {
+	const report = scoreBenchmark(fixtures, promptOnlyDecisions);
 
 	assert.equal(report.gate.passed, true);
-	assert.equal(report.runs[0].condition, "context-scout-wrapper");
+	assert.equal(report.runs[0].condition, "prompt-only-reviewer-with-scout");
 	assert.equal(report.runs[0].groups.positive.passRate, 1);
 	assert.equal(report.runs[0].groups.positive.scoutCalls, 4);
 	assert.equal(report.runs[0].groups.negative.falsePositiveRate, 0);
