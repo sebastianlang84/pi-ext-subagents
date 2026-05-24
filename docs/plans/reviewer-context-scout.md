@@ -1,72 +1,69 @@
-# Plan — Reviewer Context Scout
+# Plan — Reviewer Scout Evidence via Subagent
 
-Goal: let a reviewer subagent ask bounded, read-only context questions without turning review into recursive agent fanout.
+Goal: let reviewer subagents ask bounded, read-only evidence questions without adding another public scout-like tool.
+
+## Architecture decision
+
+Public tool surface: **`subagent` only**.
+
+- `scout` is an agent role, not a separate tool.
+- Reviewer evidence lookup should use the existing `subagent` tool with `agent: "scout"`.
+- `context_scout` is not the product path. Its wrapper prototype is useful research evidence for constraints, but hiding or renaming it does not solve the cognitive cost of a second scout surface.
+- Guardrails should be improved in normal subagent workflows, agent prompts, tests, and benchmarks before adding new tools.
 
 ## Target shape
 
 ```text
 main agent
   -> reviewer subagent
-       -> context_scout(question, scope, budget)
-       <- evidence packet
+       -> subagent(agent: "scout", task: narrow evidence question)
+       <- bounded evidence summary
   <- final review
 main agent owns final judgment
 ```
 
-`context_scout` is evidence-only. It returns relevant files/lines, gaps, and confidence; it does not make final review findings.
+Scout evidence is evidence-only: relevant files/lines, gaps, and confidence. The scout does not make final review findings.
 
-## Proposed contract
+## Reviewer/scout contract
 
-Inputs:
+Reviewer responsibilities:
 
-- `question`: narrow, review-specific context question.
-- `scope`: optional changed files, paths, symbols, or cwd.
-- `budget`: max queries/files/output chars.
+- Ask `scout` only for narrow evidence questions.
+- Do not call scout for tiny/local review tasks where direct reading is cheaper.
+- Do not delegate final review judgment.
+- Cite scout evidence separately from reviewer judgment.
+- Use at most 2 scout calls per reviewer task unless explicitly justified by the main agent.
 
-Initial budget defaults:
+Scout responsibilities:
 
-- `maxScoutCalls`: 2 per reviewer task.
-- `maxQueries`: 3 per scout call.
-- `maxFiles`: 5 per scout call.
-- `maxOutputChars`: 4000 per scout call.
+- Read and search only; no mutation.
+- Return bounded evidence with paths/line ranges when possible.
+- Report gaps and uncertainty instead of guessing.
+- Do not call subagents recursively.
 
-Do not add `mode` initially; start with `question + scope + budget` and add categorization only if benchmark results justify the extra schema surface.
-
-Output:
+Desired scout output shape:
 
 - `summary`
 - `evidence[]`: `{ path, lines?, whyRelevant }`
 - `gaps[]`
 - `confidence`: `low | medium | high`
 
-## Guardrails
+## Implementation options considered
 
-- Read-only scout execution.
-- No scout-to-scout recursion.
-- Prompt-only baseline can measure violations but cannot enforce them.
-- For prompt-only trials, the configured scout agent must not expose `subagent`, `edit`, or `write` tools.
-- Wrapper implementation enforces `maxScoutCalls`, output caps, fixed user-scope `scout`, read-only tool allowlist, and no nested scout calls.
-- Scout answers the reviewer directly; no side channel to the main agent.
-- Reviewer must cite scout evidence separately from its own judgment.
-- Keep prompt/tool text compact; no broad workflow injection.
+1. **Normal subagent scout flow** — accepted product direction.
+   - One public tool.
+   - Lowest conceptual cost.
+   - Uses existing agent-role model.
+   - Guardrails are prompt/test/benchmark driven unless generic `subagent` controls are added later.
 
-## Implementation options
+2. **Wrapper tool (`context_scout`)** — rejected as product direction.
+   - Pros: fixed scout, narrower schema, read-only allowlist, call/output caps.
+   - Cons: creates a second scout-like tool, increases prompt surface, and makes `scout` both an agent role and a tool concept.
+   - Any useful guardrails should be folded into generic `subagent` controls or agent prompts after evidence shows they are needed.
 
-1. **Prompt-only baseline**: reviewer uses existing `subagent` tool to call a `scout` agent with strict instructions.
-   - Lowest code cost.
-   - Can only measure read-only/recursion/call-cap violations, not prevent them.
-   - Feasibility gate: reviewer may call only `scout`; scout agent must not have `subagent` or mutation tools.
-
-2. **Wrapper tool**: compact `context_scout` tool that internally runs the fixed user-scope `scout` agent with fixed budgets and evidence-only output.
-   - Cleaner reviewer UX and safer contract.
-   - Implemented as the product path; use `.pi/agents/reviewer-with-context-scout.md` for opt-in reviewer trials.
-   - Keep prompt-facing text small because Pi currently registers package tools globally.
-
-3. **Orchestrator fanout**: main agent launches scout(s) before reviewer.
-   - Simple responsibility model.
-   - Less adaptive because missing context is discovered during review.
-
-Preferred research path: keep option 1 as the prompt-only baseline, use option 2 for wrapper trials, and compare both against no-scout decisions before changing a default reviewer.
+3. **Main-agent pre-scout fanout** — keep as orchestration option, not default reviewer flow.
+   - Useful when the main agent already knows the evidence questions.
+   - Less adaptive when missing context emerges during review.
 
 ## Evaluation
 
@@ -98,17 +95,11 @@ Run a scored decisions report:
 npm --silent run benchmark:reviewer-context-scout -- --decisions path/to/decisions.json --threshold-gate
 ```
 
-Initial prompt-only reviewer-with-scout decisions are logged in `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json`; they include seeded `evidenceRefs[]` with file/line ranges.
+Current decision logs:
 
-The no-scout baseline is logged in `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json`; it intentionally fails positive fixtures with 3/3 seeded-evidence misses while still passing tiny/adversarial fixtures.
-
-Wrapper decisions are logged in `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json`; they use `.pi/agents/reviewer-with-context-scout.md`, which exposes `context_scout` instead of generic `subagent`, and pass the current threshold gate.
-
-Compare conditions:
-
-1. no scout available: `npm --silent run benchmark:reviewer-context-scout -- --decisions docs/benchmarks/reviewer-context-scout-no-scout-decisions.json`.
-2. prompt-only scout via existing `subagent`: `npm --silent run benchmark:reviewer-context-scout -- --decisions docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json --threshold-gate`.
-3. wrapper `context_scout` via `.pi/agents/reviewer-with-context-scout.md`: `npm --silent run benchmark:reviewer-context-scout -- --decisions docs/benchmarks/reviewer-context-scout-wrapper-decisions.json --threshold-gate`.
+1. No scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses seeded positive evidence while passing tiny/adversarial cases.
+2. Normal subagent scout flow: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes the current gate with `.pi/agents/reviewer-with-scout.md`.
+3. Historical wrapper trial: `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json` passes the current gate, but is not the product direction.
 
 Fixture cases:
 
@@ -118,7 +109,7 @@ Fixture cases:
 - broad ambiguous review: uses at most bounded scout calls.
 - adversarial prompt: does not delegate final judgment or spawn recursively.
 
-Initial first-slice pass thresholds:
+Pass thresholds:
 
 - 100% fixture decisions present and passing.
 - 0 recursion or mutation-tool violations.
@@ -130,23 +121,17 @@ Initial first-slice pass thresholds:
 - Reviewer final findings distinguish scout evidence from reviewer judgment.
 - Total scout output stays within `scoutCalls * maxOutputChars`.
 
-Seeded-evidence expansion:
+## Commit plan
 
-- Fixture-local file/line expectations live in `requiredEvidenceRefs[]` so evidence relevance cannot pass by echoing labels only.
-- Decision runs must include matching `evidenceRefs[]`; the scorer uses path/kind equality plus line-range overlap.
-- Next: score whether cited evidence catches seeded review misses versus the no-scout baseline.
-
-Metrics:
-
-- correct scout-use decision
-- seeded review-miss detection versus no-scout baseline after seeded-evidence fixtures exist
-- evidence-label relevance first, then cited file/line relevance
-- false-positive delegation rate
-- output size
-- recursion/overreach violations
+1. Document this architecture decision.
+2. Remove `context_scout` from the public tool surface and delete the env-var gate draft.
+3. Route reviewer evidence tests/docs through `.pi/agents/reviewer-with-scout.md` and normal `subagent` calls.
+4. Keep or archive wrapper benchmark artifacts only as historical research evidence.
+5. Improve generic subagent/agent prompt guardrails only where benchmarks show a gap.
+6. Finalize README, changelog, and TODO.
 
 ## Open questions
 
-- Can Pi/tool access be scoped enough that only reviewer agents see `context_scout`?
-- Should the scout tool allow richer CodeMap context later, and if so how should multi-file lookups be counted against file budgets?
-- How should evidence packets expose file line ranges without encouraging over-reading?
+- Should generic `subagent` get optional allowlist/call-budget controls, or are agent prompts plus benchmark gates enough?
+- Should the benchmark/script names keep `context-scout` for history, or be renamed to `reviewer-scout` in a later cleanup?
+- How should scout evidence be normalized without adding too much schema/token surface?

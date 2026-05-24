@@ -2,6 +2,14 @@
 
 Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git history, or release notes — not as checked-off TODO entries.
 
+## P1 (Tool-surface clarity)
+
+1. [ ] Consolidate reviewer scout evidence onto the normal `subagent` tool surface.
+   - Decision: public API should be one tool, `subagent`; `scout` is an agent role, not a second tool.
+   - Do not hide `context_scout` behind an env var as the product solution.
+   - Plan: `docs/plans/reviewer-context-scout.md`.
+   - Next: remove `context_scout` from public registration/API and route reviewer evidence docs/tests through `.pi/agents/reviewer-with-scout.md`.
+
 ## P2 (User value / orchestration features)
 
 1. [ ] Explore optional fanout-then-reduce orchestration.
@@ -12,18 +20,15 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Automated runner: `npm run benchmark:subagent-routing:run -- --model <model> --output <decisions.json>`.
    - Next: collect automated runner results and/or additional-model runs before changing API surface; do not prototype built-in `reduce` yet.
 
-2. [ ] Explore reviewer-scoped context scouts.
+2. [ ] Improve reviewer-scoped scout evidence through normal subagents.
    - Canonical research plan: `docs/plans/reviewer-context-scout.md`.
-   - Goal: let reviewer subagents ask bounded, evidence-only context questions without recursive agent fanout.
+   - Goal: let reviewer subagents ask bounded, evidence-only context questions without recursive agent fanout or a second scout-like tool.
    - Benchmark scaffold: `docs/benchmarks/reviewer-context-scout-fixtures.json`, `scripts/score-reviewer-context-scout-benchmark.mjs`, `npm run benchmark:reviewer-context-scout`.
    - Prompt-only gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
-   - Wrapper prototype: `context_scout` enforces fixed user-scope `scout`, max 2 calls per reviewer task, read-only scout tool allowlist, and output caps; `.pi/agents/reviewer-with-context-scout.md` opts into it.
    - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate, including seeded `evidenceRefs[]` file/line checks.
    - No-scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses 3/3 seeded positive evidence checks while passing tiny/adversarial cases.
-   - Wrapper decision run: `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json` passes threshold gate using `.pi/agents/reviewer-with-context-scout.md` / `context_scout`.
-   - Next: decide whether to rename `context_scout` to `ask_scout` and whether to add a cleaner decision-log schema for wrapper calls instead of overloading `subagentCalls`.
+   - Historical wrapper trial: `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json` passes threshold gate but is not the product direction.
+   - Next: remove wrapper-specific product code/docs, then decide whether benchmark/script names should be renamed from `context-scout` to `reviewer-scout`.
    - Follow-ups to discuss:
-     - Budget enforcement is post-run; over-budget scout work is returned as an error after completion rather than being interrupted live.
-     - Tool/UX name `context_scout` is technical; consider a clearer reviewer-facing name such as `ask_scout`.
+     - Budget enforcement is currently benchmark/prompt-level for normal subagent scout flow; decide from evidence whether generic runtime controls are needed.
      - Scout output is currently raw text; consider validating/normalizing structured evidence refs, gaps, and confidence.
-     - Default/global reviewer opt-in is unresolved; current staged agent is `.pi/agents/reviewer-with-context-scout.md`.
