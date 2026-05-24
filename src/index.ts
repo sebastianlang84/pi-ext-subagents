@@ -102,33 +102,35 @@ const RuntimeControls = {
 	outputMode: Type.Optional(StringEnum(["summary", "full"] as const)),
 };
 
+const AgentName = Type.String();
+
 const TaskItem = Type.Object({
-	agent: Type.String(),
+	agent: AgentName,
 	task: Type.String(),
 	cwd: Type.Optional(Type.String()),
 	...RuntimeControls,
 });
 
 const ChainItem = Type.Object({
-	agent: Type.String(),
-	task: Type.String({ description: "Use {previous} for prior output." }),
+	agent: AgentName,
+	task: Type.String({ description: "Prior output: {previous}." }),
 	cwd: Type.Optional(Type.String()),
 	...RuntimeControls,
 });
 
 const AgentScopeSchema = StringEnum(["global", "repo", "global+repo", "user", "project", "both"] as const, {
-	description: "Scope: global(default), repo, global+repo; aliases user/project/both.",
+	description: "Scope; aliases user/project/both.",
 	default: "global",
 });
 
 const SubagentParams = Type.Object({
-	agent: Type.Optional(Type.String()),
+	agent: Type.Optional(AgentName),
 	task: Type.Optional(Type.String()),
 	tasks: Type.Optional(Type.Array(TaskItem)),
 	chain: Type.Optional(Type.Array(ChainItem)),
 	agentScope: Type.Optional(AgentScopeSchema),
 	confirmProjectAgents: Type.Optional(
-		Type.Boolean({ description: "Prompt before repo agents; default true.", default: true }),
+		Type.Boolean({ description: "Confirm repo agents; default true.", default: true }),
 	),
 	cwd: Type.Optional(Type.String()),
 	...RuntimeControls,
@@ -143,11 +145,11 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 	return {
 		name: "subagent",
 		label: "Subagent",
-		description: "Run isolated Pi subagents: single, parallel, or chain.",
+		description: "Run isolated Pi subagents.",
 		promptSnippet: "Run subagents.",
 		promptGuidelines: [
-			"Use for scoped delegation; main agent owns final judgment.",
-			"Prefer parallel for independent lanes, chain for ordered handoffs; avoid tiny tasks.",
+			"Scoped non-tiny delegation; parallel=independent, chain=handoffs; main owns judgment.",
+			"Use configured agent names, not generic general; examples if available: scout/reviewer/worker/planner/oracle.",
 		],
 		parameters: SubagentParams,
 

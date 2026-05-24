@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.3 - 2026-05-24
+
+SemVer impact: patch.
+
+- Add compact subagent prompt guidance to use configured agent names and avoid invented generic agents such as `general`.
+
 ## 1.3.2 - 2026-05-24
 
 SemVer impact: patch.

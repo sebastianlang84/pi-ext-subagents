@@ -156,6 +156,17 @@ test("package manifest pi.extensions points to the source entrypoint", () => {
 	assert.equal(fs.existsSync(path.join(process.cwd(), "src", "index.ts")), true);
 });
 
+test("tool prompt guidance discourages invented generic agents", () => {
+	const tool = registerExtension();
+	const guidance = tool.promptGuidelines.join("\n");
+	assert.match(guidance, /Use configured agent names/);
+	assert.match(guidance, /not generic general/);
+	assert.match(guidance, /examples if available/);
+	for (const role of ["scout", "reviewer", "worker", "planner", "oracle"]) {
+		assert.match(guidance, new RegExp(role));
+	}
+});
+
 test("execute reports normalized invalid-mode errors", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-invalid-"));
 	const home = path.join(root, "home");

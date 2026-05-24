@@ -55,7 +55,7 @@ Run several agents in parallel (internally capped for concurrency):
 {
   "tasks": [
     { "agent": "reviewer", "task": "Review correctness." },
-    { "agent": "tester", "task": "Suggest focused tests." }
+    { "agent": "reviewer", "task": "Suggest focused tests." }
   ]
 }
 ```
@@ -120,6 +120,8 @@ Prefer absolute `cwd` values. The extension validates that `cwd` is a non-empty 
 
 The tool injects compact prompt guidance for when to delegate: use subagents for context isolation, independent review, or bounded specialist work; skip tiny tasks. Parallel mode is best for independent lanes, while chain mode is best for handoffs that depend on prior output. The main agent remains responsible for final judgment.
 
+Use configured agent names rather than generic placeholders such as `general`. Example roles, when available, include `scout`, `reviewer`, `worker`, `planner`, and `oracle`.
+
 Keep delegated prompts explicit: goal, scope, constraints, allowed paths/tools, stop conditions, and desired output shape.
 
 ## Advanced workflow recipes
@@ -142,7 +144,7 @@ Use parallel mode when checks are independent, for example one reviewer focused 
 {
   "tasks": [
     { "agent": "reviewer", "task": "Review the diff for correctness and regressions." },
-    { "agent": "tester", "task": "Suggest the smallest useful test coverage for this change." }
+    { "agent": "reviewer", "task": "Suggest the smallest useful test coverage for this change." }
   ]
 }
 ```
@@ -168,7 +170,7 @@ Prefer the default `agentScope: "global"` for untrusted repositories. Use `agent
 
 ## Troubleshooting
 
-- **Unknown agents:** verify the agent file exists in `~/.pi/agent/agents/*.md` for global scope or `.pi/agents/*.md` for repo scope, and that the requested `agentScope` includes that source.
+- **Unknown agents:** use a configured agent name, not a generic placeholder such as `general`; verify the agent file exists in `~/.pi/agent/agents/*.md` for global scope or `.pi/agents/*.md` for repo scope, and that the requested `agentScope` includes that source.
 - **Invalid frontmatter:** ensure each agent file has `name` and `description` frontmatter. `tools` must be a comma-separated string, not a YAML list.
 - **Repo agents fail in JSON/headless mode:** repo-local agents fail closed unless `confirmProjectAgents: false` is explicitly set for a trusted repository.
 - **JSON-mode diagnostics:** malformed subagent JSON stdout events are skipped and recorded in the result diagnostics so later valid events can still complete.
