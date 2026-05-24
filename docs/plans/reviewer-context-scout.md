@@ -122,14 +122,15 @@ Pass thresholds:
 - Reviewer final findings distinguish scout evidence from reviewer judgment.
 - Total scout output stays within `scoutCalls * maxOutputChars`.
 
-## Commit plan
+## Implementation status
 
-1. Document this architecture decision.
-2. Remove `context_scout` from the public tool surface and delete the env-var gate draft.
-3. Route reviewer evidence tests/docs through `.pi/agents/reviewer-with-scout.md` and normal `subagent` calls.
-4. Remove wrapper benchmark artifacts from active gates; keep normal subagent scout evidence as the measurable product path.
-5. Improve generic subagent/agent prompt guardrails only where benchmarks show a gap.
-6. Finalize README, changelog, and TODO.
+Implemented:
+
+- Documented the single-tool architecture decision.
+- Removed `context_scout` from the public tool surface and deleted the wrapper implementation.
+- Routed reviewer evidence tests/docs through `.pi/agents/reviewer-with-scout.md` and normal `subagent` calls.
+- Removed wrapper benchmark artifacts from active gates; normal subagent scout evidence is the measured product path.
+- Kept generic subagent runtime controls unchanged because the normal reviewer→scout benchmark passes without another tool or new schema.
 
 ## Open questions
 

@@ -1,6 +1,6 @@
 # pi-subagents
 
-Pi package that adds a `subagent` tool for delegating work to specialized agents in isolated Pi processes, plus a bounded `context_scout` wrapper for reviewer evidence lookups. It supports single-agent runs, bounded parallel delegation, chained handoffs, and fixed-scout evidence packets.
+Pi package that adds a `subagent` tool for delegating work to specialized agents in isolated Pi processes. It supports single-agent runs, bounded parallel delegation, chained handoffs, and reviewer evidence lookups through normal scout subagents.
 
 ## Install
 
@@ -19,7 +19,7 @@ npm run check:token-injection
 pi install .
 ```
 
-After installation, restart Pi or run `/reload`; the `subagent` and `context_scout` tools should be available.
+After installation, restart Pi or run `/reload`; the `subagent` tool should be available by default.
 
 ## Agent files
 
@@ -91,21 +91,22 @@ Each single task, parallel task, or chain step can opt into runtime controls:
 
 For parallel and chain modes, put these fields on each item in `tasks[]` or `chain[]`.
 
-## Reviewer context scouting
+## Reviewer scout evidence
 
-`context_scout` asks the fixed user-scope `scout` agent a narrow reviewer evidence question without exposing generic subagent delegation. It enforces a per-reviewer-task call cap, fixed `scout` target, read-only tool allowlist for the spawned scout (`read`, `codemap_status`, `codemap_search`), read-file/search budgets, and output truncation.
+Use the normal `subagent` tool with agent `scout` when a reviewer needs delegated evidence. `scout` is an agent role, not a separate tool.
 
 Example:
 
 ```json
 {
-  "question": "Which tests cover the changed reviewer-context-scout scoring path?",
-  "scope": "scripts/score-reviewer-context-scout-benchmark.mjs, tests/reviewer-context-scout-benchmark.test.mjs",
-  "budget": { "maxFiles": 4, "maxOutputChars": 2000 }
+  "agent": "scout",
+  "task": "Find the tests and code paths relevant to the changed reviewer-scout benchmark. Return concise evidence with file/line refs, gaps, and confidence.",
+  "maxOutputChars": 2000,
+  "outputMode": "summary"
 }
 ```
 
-The package includes `.pi/agents/reviewer-with-context-scout.md` as an experimental project-local reviewer that can call `context_scout` but not `subagent`.
+The package includes `.pi/agents/reviewer-with-scout.md` as an experimental read-only reviewer for benchmark trials. It may call only `scout`, keeps final judgment with the reviewer, and avoids scout calls for tiny/local tasks.
 
 ## Workspace and `cwd` semantics
 

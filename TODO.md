@@ -2,14 +2,6 @@
 
 Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git history, or release notes — not as checked-off TODO entries.
 
-## P1 (Tool-surface clarity)
-
-1. [ ] Consolidate reviewer scout evidence onto the normal `subagent` tool surface.
-   - Decision: public API should be one tool, `subagent`; `scout` is an agent role, not a second tool.
-   - Do not hide `context_scout` behind an env var as the product solution.
-   - Plan: `docs/plans/reviewer-context-scout.md`.
-   - Next: remove `context_scout` from public registration/API and route reviewer evidence docs/tests through `.pi/agents/reviewer-with-scout.md`.
-
 ## P2 (User value / orchestration features)
 
 1. [ ] Explore optional fanout-then-reduce orchestration.
@@ -27,8 +19,8 @@ Purpose: active open work only. Completed work belongs in `CHANGELOG.md`, git hi
    - Prompt-only gate: default `reviewer` fails because it does not expose `subagent`; project-local `.pi/agents/reviewer-with-scout.md` passes preflight with the global `scout`.
    - Prompt-only decision run: `docs/benchmarks/reviewer-context-scout-prompt-only-decisions.json` passes threshold gate, including seeded `evidenceRefs[]` file/line checks.
    - No-scout baseline: `docs/benchmarks/reviewer-context-scout-no-scout-decisions.json` intentionally misses 3/3 seeded positive evidence checks while passing tiny/adversarial cases.
-   - Historical wrapper trial: `docs/benchmarks/reviewer-context-scout-wrapper-decisions.json` passes threshold gate but is not the product direction.
-   - Next: remove wrapper-specific product code/docs, then decide whether benchmark/script names should be renamed from `context-scout` to `reviewer-scout`.
+   - Wrapper-specific product code/docs were removed; normal `subagent` → `scout` is the measured product path.
+   - Next: decide whether benchmark/script names should be renamed from `context-scout` to `reviewer-scout`.
    - Follow-ups to discuss:
      - Budget enforcement is currently benchmark/prompt-level for normal subagent scout flow; decide from evidence whether generic runtime controls are needed.
      - Scout output is currently raw text; consider validating/normalizing structured evidence refs, gaps, and confidence.
