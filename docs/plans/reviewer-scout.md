@@ -135,8 +135,9 @@ Implemented:
 - Added generic top-level `maxCalls` so a subagent request can reject `tasks[]` or `chain[]` fanout beyond a caller-specified budget.
 - Renamed benchmark files, npm script, and scorer to `reviewer-scout` terminology.
 - Added benchmark-only validation for structured scout output (`summary`, `evidence[]`, `gaps[]`, `confidence`) without changing the runtime `subagent` API.
+- Validated the prompt-only normal-subagent scout decision log on 2026-05-25; the threshold gate passed with 0 recursion, mutation-tool, non-scout-call, seeded-evidence, output-cap, and structured-output violations.
 
-## Open questions
+## Follow-up decisions — 2026-05-25
 
-- `maxCalls` now covers per-request call budgets, but there is still no conversation-wide quota or role allowlist.
-- Should structured scout evidence remain a benchmark-decision-log convention, or should a future runtime affordance normalize it without adding too much schema/token surface?
+- Do not add conversation-wide quotas or role allowlists yet. Existing evidence supports keeping the runtime surface at per-request `maxCalls`, `agentScope`, repo-agent trust confirmation, and unknown-agent rejection until a real reviewer-scout failure shows cross-turn budget leakage or unsafe role selection.
+- Keep structured scout evidence as a benchmark decision-log convention for now. Runtime normalization would add schema/token surface; defer it until multiple workflows need machine-readable evidence outside the reviewer-scout scorer.

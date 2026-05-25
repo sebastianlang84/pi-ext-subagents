@@ -47,7 +47,6 @@ function recordingRunner(calls) {
 			task: options.task,
 			step: options.step,
 		};
-		if (options.timeoutMs !== undefined) call.timeoutMs = options.timeoutMs;
 		if (options.maxOutputChars !== undefined) call.maxOutputChars = options.maxOutputChars;
 		if (options.outputMode !== undefined) call.outputMode = options.outputMode;
 		calls.push(call);
@@ -211,7 +210,7 @@ test("execute reports invalid requested agents before spawning", async () => {
 	assert.equal(result.details.results.length, 0);
 });
 
-test("single mode passes runtime controls to execution and formats bounded summary output", async () => {
+test("single mode passes output controls to execution and formats bounded summary output", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-single-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
@@ -229,7 +228,7 @@ test("single mode passes runtime controls to execution and formats bounded summa
 
 	assert.equal(result.isError, undefined);
 	assert.equal(result.content[0].text, "[runner] completed: out...");
-	assert.deepEqual(calls, [{ defaultCwd: project, cwd: undefined, agentName: "runner", task: "run", step: undefined, timeoutMs: 50, maxOutputChars: 6, outputMode: "summary" }]);
+	assert.deepEqual(calls, [{ defaultCwd: project, cwd: undefined, agentName: "runner", task: "run", step: undefined, maxOutputChars: 6, outputMode: "summary" }]);
 });
 
 test("single mode discovers project agents from context cwd and executes from request cwd", async () => {
@@ -319,7 +318,7 @@ test("parallel mode applies per-task output controls", async () => {
 	assert.match(result.content[0].text, /\[runner\] completed: output:full/);
 });
 
-test("parallel mode applies top-level cwd and runtime defaults", async () => {
+test("parallel mode applies top-level cwd and output defaults", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-defaults-"));
 	const project = path.join(root, "repo");
 	const defaultCwd = path.join(root, "default-run");
@@ -353,8 +352,8 @@ test("parallel mode applies top-level cwd and runtime defaults", async () => {
 	assert.deepEqual(
 		calls.sort((left, right) => left.task.localeCompare(right.task)),
 		[
-			{ defaultCwd: project, cwd: defaultCwd, agentName: "runner", task: "one", step: undefined, timeoutMs: 50, maxOutputChars: 10, outputMode: "summary" },
-			{ defaultCwd: project, cwd: overrideCwd, agentName: "runner", task: "two", step: undefined, timeoutMs: 50, maxOutputChars: 20, outputMode: "summary" },
+			{ defaultCwd: project, cwd: defaultCwd, agentName: "runner", task: "one", step: undefined, maxOutputChars: 10, outputMode: "summary" },
+			{ defaultCwd: project, cwd: overrideCwd, agentName: "runner", task: "two", step: undefined, maxOutputChars: 20, outputMode: "summary" },
 		],
 	);
 });

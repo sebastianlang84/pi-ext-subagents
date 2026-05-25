@@ -18,7 +18,7 @@ The benchmark should answer:
 - No code implementation of built-in `reduce`.
 - No model-provider comparison unless needed later.
 - No evaluation of subagent answer quality after execution; this spec evaluates orchestration choice.
-- No automatic model execution yet; the initial harness scores decision files produced by a human or separate runner.
+- No benchmarked task execution; the automated runner only asks Pi for prompt-only routing decisions and then scores those decision files offline.
 
 ## Compared conditions
 
@@ -203,6 +203,35 @@ Result: threshold gate fails.
 | schema-affordance | 5/6 | 0/6 | 0/4 | positivePassRate |
 
 Interpretation: current compact metadata was enough for this prompt-only run, and the minimal improved-metadata wording also passed. The loaded skill excerpt was more conservative on P2/P4, and the schema-affordance prototype did not create false positives but still missed P4. Do not add a built-in `reduce` schema from this single run; repeat with the automated runner and/or additional models before API work.
+
+## Current automated run
+
+Report: `docs/benchmarks/subagent-routing-report-2026-05-25.md`.
+
+Decision log: `docs/benchmarks/subagent-routing-auto-2026-05-25-openai-codex-gpt-5-5.json`.
+
+Command:
+
+```bash
+npm --silent run benchmark:subagent-routing:run -- \
+  --model openai-codex/gpt-5.5 \
+  --output docs/benchmarks/subagent-routing-auto-2026-05-25-openai-codex-gpt-5-5.json
+
+npm --silent run benchmark:subagent-routing -- \
+  --decisions docs/benchmarks/subagent-routing-auto-2026-05-25-openai-codex-gpt-5-5.json \
+  --threshold-gate
+```
+
+Result: threshold gate passes.
+
+| Condition | Positive pass | Negative false positives | Schema-gravity false positives | Gate issue |
+| --- | ---: | ---: | ---: | --- |
+| metadata-only | 6/6 | 0/6 | 1/4 | none |
+| metadata-skill | 6/6 | 0/6 | 0/4 | none |
+| improved-metadata | 6/6 | 0/6 | 1/4 | none |
+| schema-affordance | 6/6 | 0/6 | 0/4 | none |
+
+Interpretation: all conditions recognized positive fanout-then-synthesis cases in this automated run. The remaining concern is `S2` ordinary-review overdelegation under `metadata-only` and `improved-metadata`. Do not prototype built-in `reduce` from this single automated run; repeat the automated run and/or use another model before prompt-facing/API changes.
 
 The current scorer aggregates:
 

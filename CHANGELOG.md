@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2.0.0 - 2026-05-25
+
+SemVer impact: major.
+
+- Remove caller-controlled `timeoutMs` from the `subagent` tool surface and use a fixed app-owned 10-minute deadline for child runs, so agents cannot force brittle short deadlines such as 60 seconds.
+- Record reviewer-scout follow-up decisions: defer conversation-wide quotas/role allowlists and keep structured scout evidence benchmark-only for now.
+- Record the first automated subagent-routing evaluation run and keep built-in `reduce` deferred pending repeat/additional-model evidence.
+
 ## 1.4.1 - 2026-05-25
 
 SemVer impact: patch.

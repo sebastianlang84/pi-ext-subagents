@@ -1,14 +1,12 @@
 import { normalizeAgentScope, type AgentScope, type AgentScopeInput } from "./agents.js";
 
 const MAX_PARALLEL_TASKS = 8;
-const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export type SubagentMode = "single" | "parallel" | "chain";
 
 export type OutputMode = "summary" | "full";
 
 export interface RuntimeControls {
-	timeoutMs?: number;
 	maxOutputChars?: number;
 	outputMode?: OutputMode;
 }
@@ -78,10 +76,8 @@ function validateOutputMode(value: unknown, label: string): OutputMode | undefin
 
 function validateRuntimeControls(item: RuntimeControls, label: string): RuntimeControls {
 	const controls: RuntimeControls = {};
-	const timeoutMs = validatePositiveInteger(item.timeoutMs, `${label}.timeoutMs`, MAX_TIMEOUT_MS);
 	const maxOutputChars = validatePositiveInteger(item.maxOutputChars, `${label}.maxOutputChars`);
 	const outputMode = validateOutputMode(item.outputMode, `${label}.outputMode`);
-	if (timeoutMs !== undefined) controls.timeoutMs = timeoutMs;
 	if (maxOutputChars !== undefined) controls.maxOutputChars = maxOutputChars;
 	if (outputMode !== undefined) controls.outputMode = outputMode;
 	return controls;
@@ -113,7 +109,6 @@ function withDefaults(item: RequestTask, defaults: RuntimeControls & { cwd?: str
 	return {
 		...item,
 		cwd: fieldProvided(item.cwd) ? item.cwd : defaults.cwd,
-		timeoutMs: fieldProvided(item.timeoutMs) ? item.timeoutMs : defaults.timeoutMs,
 		maxOutputChars: fieldProvided(item.maxOutputChars) ? item.maxOutputChars : defaults.maxOutputChars,
 		outputMode: fieldProvided(item.outputMode) ? item.outputMode : defaults.outputMode,
 	};
@@ -149,7 +144,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 			mode: "single",
 			agentScope,
 			confirmProjectAgents,
-			steps: [validateTaskItem({ agent: params.agent, task: params.task, cwd: params.cwd, timeoutMs: params.timeoutMs, maxOutputChars: params.maxOutputChars, outputMode: params.outputMode }, "single")],
+			steps: [validateTaskItem({ agent: params.agent, task: params.task, cwd: params.cwd, maxOutputChars: params.maxOutputChars, outputMode: params.outputMode }, "single")],
 		};
 	}
 

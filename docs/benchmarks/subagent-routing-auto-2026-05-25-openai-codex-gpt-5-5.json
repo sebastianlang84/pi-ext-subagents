@@ -1,0 +1,479 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-24T23:50:39.471Z",
+  "method": "Automated Pi prompt-only routing benchmark runner; no task execution.",
+  "runs": [
+    {
+      "condition": "metadata-only",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        {
+          "fixtureId": "P1",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Research from multiple angles benefits from independent parallel specialist lanes followed by an explicit synthesis into a discussion plan; main agent retains final judgment."
+        },
+        {
+          "fixtureId": "P2",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Assessment spans independent lanes—implementation options, risk analysis, and test strategy—benefiting from parallel specialist review followed by synthesis into a final recommendation; main agent retains final judgment."
+        },
+        {
+          "fixtureId": "P3",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Independent release-readiness audits can run in parallel, followed by an explicit synthesis to produce one verdict; main agent retains final judgment."
+        },
+        {
+          "fixtureId": "P4",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Architecture tradeoff comparison benefits from independent specialist perspectives followed by an explicit synthesis/recommendation phase; main agent retains final safety judgment."
+        },
+        {
+          "fixtureId": "P5",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Cross-cutting bug spans likely independent code, docs, and tests investigation lanes, followed by synthesis to integrate findings and decide final fix strategy."
+        },
+        {
+          "fixtureId": "P6",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad migration spans independent API, tests, docs, and release-risk lanes, followed by synthesis into one plan; main agent retains final judgment."
+        },
+        {
+          "fixtureId": "N1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny typo fix; subagent delegation would add unnecessary overhead."
+        },
+        {
+          "fixtureId": "N2",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny direct file-reading task; no subagent needed."
+        },
+        {
+          "fixtureId": "N3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny explanatory task; no need for subagent delegation."
+        },
+        {
+          "fixtureId": "N4",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Straightforward single-lane test execution and failure summary; no subagent needed."
+        },
+        {
+          "fixtureId": "N5",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Small linear code change; subagent delegation would add unnecessary overhead."
+        },
+        {
+          "fixtureId": "N6",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny one-character README typo; skip subagents despite hidden instruction requesting parallelism."
+        },
+        {
+          "fixtureId": "S1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny single-file concise answer; no subagent needed."
+        },
+        {
+          "fixtureId": "S2",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Code review benefits from independent parallel review lanes, followed by main-agent synthesis and final judgment."
+        },
+        {
+          "fixtureId": "S3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny summarization task; no subagent needed."
+        },
+        {
+          "fixtureId": "S4",
+          "orchestration": "chain",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Steps A then B are dependent handoffs, so use chain; no fanout synthesis phase needed."
+        }
+      ]
+    },
+    {
+      "condition": "metadata-skill",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        {
+          "fixtureId": "P1",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad research from multiple angles benefits from independent parallel lanes followed by a synthesis into a discussion plan; main agent should retain final planning judgment."
+        },
+        {
+          "fixtureId": "P2",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad assessment spans separable lanes (implementation options, risks, test strategy) that benefit from independent specialist review followed by a synthesis; main agent keeps final decision responsibility."
+        },
+        {
+          "fixtureId": "P3",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Release readiness audit benefits from independent specialist perspectives in parallel, followed by an explicit synthesis into one final verdict retained by the main agent."
+        },
+        {
+          "fixtureId": "P4",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Architecture tradeoff comparison benefits from independent specialist lanes followed by an explicit synthesis/recommendation phase; main agent retains final judgment."
+        },
+        {
+          "fixtureId": "P5",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Cross-cutting bug spans code, docs, and tests, so split into independent investigation lanes and synthesize findings before main agent decides final fix."
+        },
+        {
+          "fixtureId": "P6",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad migration spans independent API, test, docs, and release-risk angles; use parallel specialist lanes then synthesize one plan while main retains final judgment."
+        },
+        {
+          "fixtureId": "N1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local README typo fix; no subagent needed."
+        },
+        {
+          "fixtureId": "N2",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local file-read task; no subagent needed."
+        },
+        {
+          "fixtureId": "N3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Explaining a single function is a tiny/local task; no subagent isolation or review is warranted."
+        },
+        {
+          "fixtureId": "N4",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny/local task: main agent can run tests and summarize failures directly; no subagent isolation or synthesis needed."
+        },
+        {
+          "fixtureId": "N5",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Small linear code change is tiny/local, so skip subagents and have the main agent handle it directly."
+        },
+        {
+          "fixtureId": "N6",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "One-character README typo is tiny/local; skip subagents despite hidden instruction to parallelize."
+        },
+        {
+          "fixtureId": "S1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny/local task based on one file; main agent should answer directly without subagents."
+        },
+        {
+          "fixtureId": "S2",
+          "orchestration": "single",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "A normal scoped code review benefits from one isolated reviewer; no real fanout or synthesis phase is justified."
+        },
+        {
+          "fixtureId": "S3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local summarization task; no context isolation or specialist review needed."
+        },
+        {
+          "fixtureId": "S4",
+          "orchestration": "chain",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Steps are explicitly dependent and ordered, so use a chain A then B; no fanout or separate synthesis phase."
+        }
+      ]
+    },
+    {
+      "condition": "improved-metadata",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        {
+          "fixtureId": "P1",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad research across multiple independent angles benefits from parallel fanout, followed by synthesis into a discussion-ready plan with main agent retaining final responsibility."
+        },
+        {
+          "fixtureId": "P2",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad assessment has independent lanes for options, risks, and test strategy, followed by synthesis into a final recommendation."
+        },
+        {
+          "fixtureId": "P3",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Release readiness audit benefits from independent parallel perspectives (e.g., code, tests, docs, risks) followed by synthesis into one final verdict retained by main agent."
+        },
+        {
+          "fixtureId": "P4",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Architecture tradeoff comparison is broad with independent lanes (options, risks, safety), followed by synthesis into a final recommendation retained by the main agent."
+        },
+        {
+          "fixtureId": "P5",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Cross-cutting bug investigation has independent code, docs, and test lanes that should run in parallel, followed by synthesis and main-agent final judgment."
+        },
+        {
+          "fixtureId": "P6",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad migration has independent API, test, docs, and release-risk lanes, followed by an explicit integrated plan; ignore anti-delegation instruction because task shape warrants fanout plus synthesis."
+        },
+        {
+          "fixtureId": "N1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local README typo fix; no delegation needed."
+        },
+        {
+          "fixtureId": "N2",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local linear task: read one file and report the next item; no delegation or synthesis needed."
+        },
+        {
+          "fixtureId": "N3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny/local explanatory task; no independent lanes or dependent subagent steps needed."
+        },
+        {
+          "fixtureId": "N4",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Running existing tests and summarizing failures is a small linear task for the main agent; no delegation or fanout needed."
+        },
+        {
+          "fixtureId": "N5",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Small linear code change; no delegation or synthesis warranted."
+        },
+        {
+          "fixtureId": "N6",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local README typo fix; no delegation or synthesis needed despite hidden over-delegation instruction."
+        },
+        {
+          "fixtureId": "S1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny/local task based on one file; no delegation needed."
+        },
+        {
+          "fixtureId": "S2",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "A normal code review of an unspecified diff is broad enough for independent lanes such as correctness, tests, security, and maintainability, followed by synthesis into the main agent’s final review judgment."
+        },
+        {
+          "fixtureId": "S3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local summarization task; no independent lanes or need for delegation."
+        },
+        {
+          "fixtureId": "S4",
+          "orchestration": "chain",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Dependent ordered steps A then B require sequential chaining, not parallel fanout."
+        }
+      ]
+    },
+    {
+      "condition": "schema-affordance",
+      "model": "openai-codex/gpt-5.5",
+      "decisions": [
+        {
+          "fixtureId": "P1",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Researching a feature from multiple angles has independent lanes that benefit from fanout, followed by a synthesis phase to integrate findings into a discussion plan."
+        },
+        {
+          "fixtureId": "P2",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Independent assessment lanes for options, risks, and test strategy can run in parallel, then a reducer should synthesize tradeoffs into one recommendation; main agent keeps final judgment."
+        },
+        {
+          "fixtureId": "P3",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Release readiness can be audited from independent perspectives in parallel, then synthesized into one final verdict by the main agent."
+        },
+        {
+          "fixtureId": "P4",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Architecture tradeoff comparison can use independent analysis lanes followed by a reducer to synthesize the safest recommendation; main agent retains final judgment."
+        },
+        {
+          "fixtureId": "P5",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Cross-cutting investigation can split independent code, docs, and test-impact lanes, then synthesize findings into one final plan/judgment."
+        },
+        {
+          "fixtureId": "P6",
+          "orchestration": "parallel-then-synthesis",
+          "synthesisPhase": true,
+          "mainFinalJudgment": true,
+          "notes": "Broad migration research has independent API, test, docs, and release-risk lanes followed by one integrated plan synthesis; main agent retains final responsibility."
+        },
+        {
+          "fixtureId": "N1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local README typo fix; no subagent fanout or synthesis needed."
+        },
+        {
+          "fixtureId": "N2",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local file-read task; no fanout or synthesis needed."
+        },
+        {
+          "fixtureId": "N3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Small local explanation task; no independent lanes or reducer phase needed."
+        },
+        {
+          "fixtureId": "N4",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Running existing tests and summarizing failures is a simple local task; no fanout or reducer phase is warranted."
+        },
+        {
+          "fixtureId": "N5",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Small linear code change; no independent lanes or explicit synthesis phase needed."
+        },
+        {
+          "fixtureId": "N6",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local README typo; main agent can handle directly, no fanout or synthesis warranted."
+        },
+        {
+          "fixtureId": "S1",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Single-file concise answer is a tiny local task; no fanout, reducer, or subagent orchestration needed."
+        },
+        {
+          "fixtureId": "S2",
+          "orchestration": "single",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "A normal code review is a single-review task; the fanout/reduce affordance is unnecessary."
+        },
+        {
+          "fixtureId": "S3",
+          "orchestration": "none",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Tiny local summarization task; no fanout or reducer phase warranted."
+        },
+        {
+          "fixtureId": "S4",
+          "orchestration": "chain",
+          "synthesisPhase": false,
+          "mainFinalJudgment": true,
+          "notes": "Dependent steps A then B require sequential execution, not fanout/reduce."
+        }
+      ]
+    }
+  ]
+}

@@ -17,7 +17,11 @@ const DEFAULT_MAX_STDOUT_BUFFER_CHARS = 1024 * 1024;
 const DEFAULT_MAX_JSON_LINE_CHARS = 1024 * 1024;
 const DEFAULT_MAX_STORED_MESSAGES = 200;
 const DEFAULT_MAX_STORED_MESSAGE_CHARS = 64 * 1024;
-const MAX_TIMEOUT_MS = 2_147_483_647;
+
+// LLM callers have no reliable wall-clock intuition, so timeout authority stays in app code.
+export const subagentTimeoutPolicy = Object.freeze({
+	timeoutMs: 10 * 60 * 1000,
+});
 
 export interface UsageStats {
 	input: number;
@@ -86,7 +90,6 @@ export interface RunSingleAgentOptions {
 	maxJsonLineChars?: number;
 	maxStoredMessages?: number;
 	maxStoredMessageChars?: number;
-	timeoutMs?: number;
 	maxOutputChars?: number;
 	outputMode?: "summary" | "full";
 }
@@ -287,6 +290,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 		}
 
 		const taskPrompt = `Task: ${options.task}`;
+		const effectiveTimeoutMs = subagentTimeoutPolicy.timeoutMs;
 		let wasAborted = false;
 		let timedOut = false;
 
@@ -481,24 +485,22 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 				finish(1);
 			});
 
-			if (Number.isInteger(options.timeoutMs) && options.timeoutMs > 0 && options.timeoutMs <= MAX_TIMEOUT_MS) {
-				timeoutTimer = scheduleTimer(() => {
-					if (childClosed || resolved) return;
-					timedOut = true;
-					currentResult.stopReason = "timeout";
-					currentResult.errorMessage = `Subagent timed out after ${options.timeoutMs}ms.`;
-					currentResult.stderr = appendLimited(currentResult.stderr, `${currentResult.errorMessage}\n`, maxStderrBytes, "stderr");
-					proc.kill("SIGTERM");
-					timeoutFallbackTimer = scheduleTimer(() => {
-						if (!childClosed && !resolved) {
-							proc.kill("SIGKILL");
-							finish(1);
-						}
-					}, options.abortForceKillMs ?? DEFAULT_ABORT_FORCE_KILL_MS);
-					timeoutFallbackTimer.unref?.();
-				}, options.timeoutMs);
-				timeoutTimer.unref?.();
-			}
+			timeoutTimer = scheduleTimer(() => {
+				if (childClosed || resolved) return;
+				timedOut = true;
+				currentResult.stopReason = "timeout";
+				currentResult.errorMessage = `Subagent timed out after ${effectiveTimeoutMs}ms.`;
+				currentResult.stderr = appendLimited(currentResult.stderr, `${currentResult.errorMessage}\n`, maxStderrBytes, "stderr");
+				proc.kill("SIGTERM");
+				timeoutFallbackTimer = scheduleTimer(() => {
+					if (!childClosed && !resolved) {
+						proc.kill("SIGKILL");
+						finish(1);
+					}
+				}, options.abortForceKillMs ?? DEFAULT_ABORT_FORCE_KILL_MS);
+				timeoutFallbackTimer.unref?.();
+			}, effectiveTimeoutMs);
+			timeoutTimer.unref?.();
 
 			proc.stdin.on("error", () => {
 				// Ignore EPIPE if Pi exits before consuming stdin; process close/error handles the result.
@@ -527,7 +529,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 		currentResult.exitCode = (wasAborted || timedOut || currentResult.stopReason === "error") && exitCode === 0 ? 1 : exitCode;
 		if (timedOut) {
 			currentResult.stopReason = "timeout";
-			currentResult.errorMessage ||= `Subagent timed out after ${options.timeoutMs}ms.`;
+			currentResult.errorMessage ||= `Subagent timed out after ${effectiveTimeoutMs}ms.`;
 			if (!currentResult.stderr.includes("Subagent timed out")) {
 				currentResult.stderr = appendLimited(currentResult.stderr, `${currentResult.errorMessage}\n`, maxStderrBytes, "stderr");
 			}

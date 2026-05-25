@@ -4,7 +4,7 @@ import test from "node:test";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url);
-const { runSingleAgent, getFinalOutput } = await jiti.import("../src/run.ts");
+const { runSingleAgent, getFinalOutput, subagentTimeoutPolicy } = await jiti.import("../src/run.ts");
 
 class FakeStdin extends EventEmitter {
 	chunks = [];
@@ -293,13 +293,14 @@ test("honors injected timer scheduling for agent_end cleanup", async () => {
 	});
 
 	await new Promise((resolve) => setImmediate(resolve));
-	assert.equal(timers.length, 1);
-	assert.equal(timers[0].ms, 10);
-	timers[0].fn();
-	assert.deepEqual(fake.kills, ["SIGTERM"]);
 	assert.equal(timers.length, 2);
-	assert.equal(timers[1].ms, 20);
+	assert.equal(timers[0].ms, subagentTimeoutPolicy.timeoutMs);
+	assert.equal(timers[1].ms, 10);
 	timers[1].fn();
+	assert.deepEqual(fake.kills, ["SIGTERM"]);
+	assert.equal(timers.length, 3);
+	assert.equal(timers[2].ms, 20);
+	timers[2].fn();
 
 	const result = await promise;
 	assert.equal(result.exitCode, 0);
@@ -320,9 +321,10 @@ test("honors injected timer scheduling for abort fallback", async () => {
 
 	controller.abort();
 	assert.deepEqual(fake.kills, ["SIGTERM"]);
-	assert.equal(timers.length, 1);
-	assert.equal(timers[0].ms, 30);
-	timers[0].fn();
+	assert.equal(timers.length, 2);
+	assert.equal(timers[0].ms, subagentTimeoutPolicy.timeoutMs);
+	assert.equal(timers[1].ms, 30);
+	timers[1].fn();
 
 	const result = await promise;
 	assert.equal(result.exitCode, 1);
@@ -330,6 +332,24 @@ test("honors injected timer scheduling for abort fallback", async () => {
 	assert.match(result.errorMessage, /Subagent was aborted/);
 	assert.match(result.stderr, /Subagent was aborted/);
 	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
+});
+
+test("applies app-owned timeout and ignores obsolete caller hints", async () => {
+	for (const timeoutMs of [undefined, 50, 999 * 60 * 1000]) {
+		const fake = new FakeProcess();
+		const timers = [];
+		const schedule = (fn, ms) => {
+			const timer = { fn, ms, unref() {} };
+			timers.push(timer);
+			return timer;
+		};
+		const promise = startRun(fake, { timeoutMs, now: schedule });
+
+		assert.equal(timers.length, 1);
+		assert.equal(timers[0].ms, subagentTimeoutPolicy.timeoutMs);
+		fake.close(0);
+		await promise;
+	}
 });
 
 test("times out with SIGTERM then SIGKILL when the child does not close", async () => {
@@ -343,7 +363,7 @@ test("times out with SIGTERM then SIGKILL when the child does not close", async 
 	const promise = startRun(fake, { timeoutMs: 50, abortForceKillMs: 25, now: schedule });
 
 	assert.equal(timers.length, 1);
-	assert.equal(timers[0].ms, 50);
+	assert.equal(timers[0].ms, subagentTimeoutPolicy.timeoutMs);
 	timers[0].fn();
 	assert.deepEqual(fake.kills, ["SIGTERM"]);
 	assert.equal(timers.length, 2);
@@ -353,8 +373,8 @@ test("times out with SIGTERM then SIGKILL when the child does not close", async 
 	const result = await promise;
 	assert.equal(result.exitCode, 1);
 	assert.equal(result.stopReason, "timeout");
-	assert.match(result.errorMessage, /timed out after 50ms/);
-	assert.match(result.stderr, /timed out after 50ms/);
+	assert.match(result.errorMessage, new RegExp(`timed out after ${subagentTimeoutPolicy.timeoutMs}ms`));
+	assert.match(result.stderr, new RegExp(`timed out after ${subagentTimeoutPolicy.timeoutMs}ms`));
 	assert.deepEqual(fake.kills, ["SIGTERM", "SIGKILL"]);
 });
 

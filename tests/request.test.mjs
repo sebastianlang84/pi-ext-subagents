@@ -27,16 +27,14 @@ test("normalizes preferred agentScope names and legacy aliases", () => {
 });
 
 test("normalizes optional per-task runtime controls", () => {
-	assert.deepEqual(normalizeSubagentRequest({ agent: "reviewer", task: "check", timeoutMs: 1000, maxOutputChars: 80, outputMode: "summary" }).steps[0], {
+	assert.deepEqual(normalizeSubagentRequest({ agent: "reviewer", task: "check", maxOutputChars: 80, outputMode: "summary" }).steps[0], {
 		agent: "reviewer",
 		task: "check",
 		cwd: undefined,
-		timeoutMs: 1000,
 		maxOutputChars: 80,
 		outputMode: "summary",
 	});
 
-	assert.deepEqual(normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 5 }] }).steps[0].timeoutMs, 5);
 	assert.deepEqual(normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "full" }] }).steps[0].outputMode, "full");
 });
 
@@ -47,21 +45,25 @@ test("enforces optional top-level subagent call budgets", () => {
 	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x" }, { agent: "b", task: "y" }], maxCalls: 1 }), /exceeding maxCalls 1/);
 });
 
+test("ignores obsolete caller timeout fields", () => {
+	assert.deepEqual(normalizeSubagentRequest({ agent: "a", task: "x", timeoutMs: 1 }).steps[0], { agent: "a", task: "x", cwd: undefined });
+	assert.deepEqual(normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 1 }], timeoutMs: 2 }).steps[0], { agent: "a", task: "x", cwd: undefined });
+});
+
 test("applies top-level cwd and runtime controls as parallel and chain defaults", () => {
 	assert.deepEqual(
 		normalizeSubagentRequest({
 			cwd: "/repo",
-			timeoutMs: 1000,
 			maxOutputChars: 80,
 			outputMode: "summary",
 			tasks: [
 				{ agent: "a", task: "x" },
-				{ agent: "b", task: "y", cwd: "/other", timeoutMs: 5, outputMode: "full" },
+				{ agent: "b", task: "y", cwd: "/other", outputMode: "full" },
 			],
 		}).steps,
 		[
-			{ agent: "a", task: "x", cwd: "/repo", timeoutMs: 1000, maxOutputChars: 80, outputMode: "summary" },
-			{ agent: "b", task: "y", cwd: "/other", timeoutMs: 5, maxOutputChars: 80, outputMode: "full" },
+			{ agent: "a", task: "x", cwd: "/repo", maxOutputChars: 80, outputMode: "summary" },
+			{ agent: "b", task: "y", cwd: "/other", maxOutputChars: 80, outputMode: "full" },
 		],
 	);
 
@@ -98,12 +100,8 @@ test("rejects invalid agentScope and whitespace cwd values", () => {
 });
 
 test("rejects invalid runtime controls", () => {
-	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", timeoutMs: 0 }), /single\.timeoutMs/);
-	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", timeoutMs: 2_147_483_648 }), /single\.timeoutMs/);
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", maxOutputChars: -1 }), /single\.maxOutputChars/);
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", outputMode: "verbose" }), /single\.outputMode/);
 	assert.throws(() => normalizeSubagentRequest({ agent: "a", task: "x", maxCalls: 0 }), /maxCalls/);
-	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x", timeoutMs: 1.5 }] }), /tasks\[0\]\.timeoutMs/);
 	assert.throws(() => normalizeSubagentRequest({ chain: [{ agent: "a", task: "x", outputMode: "verbose" }] }), /chain\[0\]\.outputMode/);
-	assert.throws(() => normalizeSubagentRequest({ tasks: [{ agent: "a", task: "x" }], timeoutMs: 0 }), /defaults\.timeoutMs/);
 });

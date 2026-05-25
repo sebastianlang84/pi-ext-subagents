@@ -73,25 +73,24 @@ Run a chain; `{previous}` is replaced with the previous step's final output:
 
 ## Runtime controls
 
-Each single task, parallel task, or chain step can opt into runtime controls. The top-level request can also cap total calls:
+Each single task, parallel task, or chain step can opt into output controls. The top-level request can also cap total calls:
 
 ```json
 {
   "agent": "reviewer",
   "task": "Review the diff briefly.",
-  "timeoutMs": 30000,
   "maxOutputChars": 2000,
   "outputMode": "summary",
   "maxCalls": 1
 }
 ```
 
-- `timeoutMs` fails the step as a timeout and terminates the child process if it exceeds the deadline.
+- Subagent timeouts are app-owned, not caller-controlled: LLMs do not have reliable wall-clock intuition, so every child run uses the extension's deterministic 10-minute deadline. The `subagent` tool does not expose `timeoutMs`, so agents cannot choose brittle short deadlines such as 60 seconds.
 - `maxOutputChars` bounds returned tool-result text for that step.
 - `outputMode: "summary"` returns a status/preview; `"full"` returns the step output subject to any cap. Parallel mode remains summarized by default unless a task asks for `"full"`.
 - `maxCalls` is top-level only; it rejects a request whose single, `tasks[]`, or `chain[]` mode would exceed the call budget.
 
-For parallel and chain modes, top-level `cwd`, `timeoutMs`, `maxOutputChars`, and `outputMode` act as defaults for every item in `tasks[]` or `chain[]`; per-item fields override those defaults. `maxCalls` stays request-level. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
+For parallel and chain modes, top-level `cwd`, `maxOutputChars`, and `outputMode` act as defaults for every item in `tasks[]` or `chain[]`; per-item fields override those defaults. `maxCalls` stays request-level. In chains, `{previous}` receives the prior step's raw final output; `maxOutputChars` can cap that handoff, but `outputMode` only affects returned tool-result text.
 
 ## Reviewer scout evidence
 

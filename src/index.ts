@@ -97,7 +97,6 @@ function shortenPath(p: string): string {
 }
 
 const RuntimeControls = {
-	timeoutMs: Type.Optional(Type.Integer()),
 	maxOutputChars: Type.Optional(Type.Integer()),
 	outputMode: Type.Optional(StringEnum(["summary", "full"] as const)),
 };
