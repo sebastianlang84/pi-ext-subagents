@@ -117,8 +117,8 @@ const ChainItem = Type.Object({
 	...RuntimeControls,
 });
 
-const AgentScopeSchema = StringEnum(["global", "repo", "global+repo", "user", "project", "both"] as const, {
-	description: "Scope; aliases user/project/both.",
+const AgentScopeSchema = StringEnum(["global", "repo", "both"] as const, {
+	description: "Agent source: global, repo, or both.",
 	default: "global",
 });
 
@@ -129,7 +129,7 @@ const SubagentParams = Type.Object({
 	chain: Type.Optional(Type.Array(ChainItem)),
 	maxCalls: Type.Optional(Type.Integer()),
 	agentScope: Type.Optional(AgentScopeSchema),
-	confirmProjectAgents: Type.Optional(
+	confirmRepoAgents: Type.Optional(
 		Type.Boolean({ description: "Confirm repo agents; default true.", default: true }),
 	),
 	cwd: Type.Optional(Type.String()),

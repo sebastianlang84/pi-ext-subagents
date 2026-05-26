@@ -8,7 +8,7 @@ const { buildParallelResultSummary, defaultResultSummaryPolicy } = await jiti.im
 function agentResult(agent, text, exitCode = 0, overrides = {}) {
 	return {
 		agent,
-		agentSource: "user",
+		agentSource: "global",
 		task: `task-${agent}`,
 		exitCode,
 		stderr: "",

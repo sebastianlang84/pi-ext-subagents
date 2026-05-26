@@ -7,7 +7,7 @@ import type { Writable } from "node:stream";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import type { AgentConfig, AgentScope, InvalidAgentDiagnostic } from "./agents.js";
+import type { AgentConfig, AgentScope, AgentSource, InvalidAgentDiagnostic } from "./agents.js";
 
 const DEFAULT_AGENT_END_GRACE_MS = 2000;
 const DEFAULT_AGENT_END_FORCE_KILL_MS = 1000;
@@ -35,7 +35,7 @@ export interface UsageStats {
 
 export interface SingleResult {
 	agent: string;
-	agentSource: "user" | "project" | "unknown";
+	agentSource: AgentSource | "unknown";
 	task: string;
 	exitCode: number;
 	messages: Message[];
@@ -50,7 +50,7 @@ export interface SingleResult {
 export interface SubagentDetails {
 	mode: "single" | "parallel" | "chain";
 	agentScope: AgentScope;
-	projectAgentsDir: string | null;
+	repoAgentsDir: string | null;
 	invalidAgents?: InvalidAgentDiagnostic[];
 	results: SingleResult[];
 }

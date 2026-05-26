@@ -9,9 +9,9 @@ const jiti = createJiti(import.meta.url);
 const {
 	discoverAgents,
 	formatAgentSource,
-	formatProjectAgentTrustDiagnostics,
+	formatRepoAgentTrustDiagnostics,
 	getMutationCapableTools,
-	getProjectAgentTrustDecision,
+	getRepoAgentTrustDecision,
 	loadAgentsFromDir,
 } = await jiti.import("../src/agents.ts");
 
@@ -20,27 +20,27 @@ function writeAgent(file, frontmatter, body = "Body") {
 	fs.writeFileSync(file, `---\n${frontmatter}\n---\n\n${body}\n`);
 }
 
-test("discovers global/repo agents with repo precedence in global+repo scope", () => {
+test("discovers global/repo agents with repo precedence in both scope", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-agents-"));
 	const home = path.join(root, "home");
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = home;
 
-	writeAgent(path.join(home, "agents", "same.md"), "name: same\ndescription: User agent\ntools: read, bash\nmodel: user-model");
-	writeAgent(path.join(project, ".pi", "agents", "same.md"), "name: same\ndescription: Project agent\ntools: read\nmodel: project-model");
-	writeAgent(path.join(project, ".pi", "agents", "project-only.md"), "name: project-only\ndescription: Project only");
+	writeAgent(path.join(home, "agents", "same.md"), "name: same\ndescription: Global agent\ntools: read, bash\nmodel: global-model");
+	writeAgent(path.join(project, ".pi", "agents", "same.md"), "name: same\ndescription: Repo agent\ntools: read\nmodel: repo-model");
+	writeAgent(path.join(project, ".pi", "agents", "repo-only.md"), "name: repo-only\ndescription: Repo only");
 
-	assert.deepEqual(discoverAgents(project, "global").agents.map((a) => `${a.name}:${a.source}`), ["same:user"]);
-	assert.deepEqual(discoverAgents(project, "repo").agents.map((a) => `${a.name}:${a.source}`).sort(), ["project-only:project", "same:project"]);
+	assert.deepEqual(discoverAgents(project, "global").agents.map((a) => `${a.name}:${a.source}`), ["same:global"]);
+	assert.deepEqual(discoverAgents(project, "repo").agents.map((a) => `${a.name}:${a.source}`).sort(), ["repo-only:repo", "same:repo"]);
 
-	const both = discoverAgents(project, "global+repo").agents;
-	assert.equal(both.find((a) => a.name === "same")?.source, "project");
-	assert.equal(both.find((a) => a.name === "same")?.model, "project-model");
-	assert.deepEqual(discoverAgents(project, "user").agents.map((a) => `${a.name}:${a.source}`), ["same:user"]);
-	assert.deepEqual(discoverAgents(project, "project").agents.map((a) => `${a.name}:${a.source}`).sort(), ["project-only:project", "same:project"]);
-	assert.equal(discoverAgents(project, "both").agents.find((a) => a.name === "same")?.source, "project");
-	assert.equal(formatAgentSource("user"), "global");
-	assert.equal(formatAgentSource("project"), "repo");
+	const both = discoverAgents(project, "both").agents;
+	assert.equal(both.find((a) => a.name === "same")?.source, "repo");
+	assert.equal(both.find((a) => a.name === "same")?.model, "repo-model");
+	assert.deepEqual(discoverAgents(project, "global").agents.map((a) => `${a.name}:${a.source}`), ["same:global"]);
+	assert.deepEqual(discoverAgents(project, "repo").agents.map((a) => `${a.name}:${a.source}`).sort(), ["repo-only:repo", "same:repo"]);
+	assert.equal(discoverAgents(project, "both").agents.find((a) => a.name === "same")?.source, "repo");
+	assert.equal(formatAgentSource("global"), "global");
+	assert.equal(formatAgentSource("repo"), "repo");
 });
 
 test("reports malformed agents, YAML-list tools, and accepts symlinked md files", () => {
@@ -52,24 +52,24 @@ test("reports malformed agents, YAML-list tools, and accepts symlinked md files"
 	writeAgent(path.join(root, "target.md"), "name: linked\ndescription: Linked\ntools: read");
 	fs.symlinkSync(path.join(root, "target.md"), path.join(dir, "linked.md"));
 
-	const result = loadAgentsFromDir(dir, "project");
+	const result = loadAgentsFromDir(dir, "repo");
 	assert.deepEqual(result.agents.map((a) => a.name), ["linked"]);
 	assert.equal(result.invalidAgents.length, 2);
 	assert.match(result.invalidAgents.map((d) => d.reason).join("\n"), /Missing required frontmatter/);
 	assert.match(result.invalidAgents.map((d) => d.reason).join("\n"), /tools must be a comma-separated string/);
 });
 
-test("project-agent trust policy requires approval unless explicitly disabled", () => {
+test("repo-agent trust policy requires approval unless explicitly disabled", () => {
 	const agents = [
-		{ name: "user", source: "user", description: "", systemPrompt: "", filePath: "" },
-		{ name: "project", source: "project", description: "", systemPrompt: "", filePath: "" },
+		{ name: "global", source: "global", description: "", systemPrompt: "", filePath: "" },
+		{ name: "repo", source: "repo", description: "", systemPrompt: "", filePath: "" },
 	];
-	assert.equal(getProjectAgentTrustDecision(agents, ["project"], true).requiresApproval, true);
-	assert.equal(getProjectAgentTrustDecision(agents, ["project"], false).requiresApproval, false);
-	assert.equal(getProjectAgentTrustDecision(agents, ["user"], true).requiresApproval, false);
+	assert.equal(getRepoAgentTrustDecision(agents, ["repo"], true).requiresApproval, true);
+	assert.equal(getRepoAgentTrustDecision(agents, ["repo"], false).requiresApproval, false);
+	assert.equal(getRepoAgentTrustDecision(agents, ["global"], true).requiresApproval, false);
 });
 
-test("formats project-agent trust diagnostics with realpaths and mutation warnings", () => {
+test("formats repo-agent trust diagnostics with realpaths and mutation warnings", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-trust-diag-"));
 	const dir = path.join(root, "repo", ".pi", "agents");
 	fs.mkdirSync(dir, { recursive: true });
@@ -83,13 +83,13 @@ test("formats project-agent trust diagnostics with realpaths and mutation warnin
 		description: "Danger",
 		tools: ["read", "bash", "edit"],
 		model: "model-a",
-		source: "project",
+		source: "repo",
 		systemPrompt: "",
 		filePath: link,
 	};
 
 	assert.deepEqual(getMutationCapableTools(agent), ["bash", "edit"]);
-	const text = formatProjectAgentTrustDiagnostics([agent], dir);
+	const text = formatRepoAgentTrustDiagnostics([agent], dir);
 
 	assert.match(text, /Warning: mutation-capable repo-agent tools requested: danger \(bash, edit\)\./);
 	assert.match(text, /Repo agents dir:/);
@@ -98,7 +98,7 @@ test("formats project-agent trust diagnostics with realpaths and mutation warnin
 	assert.match(text, /danger-link\.md -> .*danger-target\.md/);
 });
 
-test("project-agent trust diagnostics sanitize untrusted frontmatter values", () => {
+test("repo-agent trust diagnostics sanitize untrusted frontmatter values", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-trust-sanitize-"));
 	const filePath = path.join(root, "danger.md");
 	fs.writeFileSync(filePath, "agent body");
@@ -108,12 +108,12 @@ test("project-agent trust diagnostics sanitize untrusted frontmatter values", ()
 		description: "Danger",
 		tools: ["read\nInjected: tool", "bash"],
 		model: longModel,
-		source: "project",
+		source: "repo",
 		systemPrompt: "",
 		filePath,
 	};
 
-	const text = formatProjectAgentTrustDiagnostics([agent], root);
+	const text = formatRepoAgentTrustDiagnostics([agent], root);
 
 	assert.doesNotMatch(text, /danger\nInjected/);
 	assert.doesNotMatch(text, /read\nInjected/);
@@ -123,7 +123,7 @@ test("project-agent trust diagnostics sanitize untrusted frontmatter values", ()
 	assert.match(text, /model=x{117}\.\.\./);
 });
 
-test("project-agent trust diagnostics cap long tool lists", () => {
+test("repo-agent trust diagnostics cap long tool lists", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-trust-tools-"));
 	const filePath = path.join(root, "many-tools.md");
 	fs.writeFileSync(filePath, "agent body");
@@ -132,12 +132,12 @@ test("project-agent trust diagnostics cap long tool lists", () => {
 		name: "many-tools",
 		description: "Many tools",
 		tools,
-		source: "project",
+		source: "repo",
 		systemPrompt: "",
 		filePath,
 	};
 
-	const text = formatProjectAgentTrustDiagnostics([agent], root);
+	const text = formatRepoAgentTrustDiagnostics([agent], root);
 	const toolsLine = text.split("\n").find((line) => line.includes("tools="));
 
 	assert.ok(toolsLine);
@@ -146,7 +146,7 @@ test("project-agent trust diagnostics cap long tool lists", () => {
 	assert.ok(toolsLine.length < 500);
 });
 
-test("project-agent trust diagnostics cap displayed agents", () => {
+test("repo-agent trust diagnostics cap displayed agents", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-trust-agent-cap-"));
 	const agents = Array.from({ length: 10 }, (_, index) => {
 		const filePath = path.join(root, `agent-${index}.md`);
@@ -155,13 +155,13 @@ test("project-agent trust diagnostics cap displayed agents", () => {
 			name: `agent-${index}`,
 			description: "Agent",
 			tools: ["bash"],
-			source: "project",
+			source: "repo",
 			systemPrompt: "",
 			filePath,
 		};
 	});
 
-	const text = formatProjectAgentTrustDiagnostics(agents, root);
+	const text = formatRepoAgentTrustDiagnostics(agents, root);
 
 	assert.match(text, /Warning: mutation-capable repo-agent tools requested: agent-0 \(bash\); .*; \+2 more\./);
 	assert.match(text, /- agent-7: model=\(default\); tools=bash; file=/);

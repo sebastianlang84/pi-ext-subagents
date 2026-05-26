@@ -27,11 +27,11 @@ function registerTools() {
 	return registered;
 }
 
-function writeProjectAgent(project, name = "project-agent", extraFrontmatter = "") {
+function writeRepoAgent(project, name = "repo-agent", extraFrontmatter = "") {
 	const file = path.join(project, ".pi", "agents", `${name}.md`);
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	const extra = extraFrontmatter ? `\n${extraFrontmatter}` : "";
-	fs.writeFileSync(file, `---\nname: ${name}\ndescription: Project controlled${extra}\n---\n\nSystem prompt\n`);
+	fs.writeFileSync(file, `---\nname: ${name}\ndescription: Repo controlled${extra}\n---\n\nSystem prompt\n`);
 }
 
 function testCtx(cwd, overrides = {}) {
@@ -62,7 +62,7 @@ function recordingRunner(calls) {
 function agentResult(agent, text, exitCode = 0, overrides = {}) {
 	return {
 		agent,
-		agentSource: "user",
+		agentSource: "global",
 		task: `task-${agent}`,
 		exitCode,
 		stderr: "",
@@ -78,13 +78,13 @@ test("execution module runs a normalized plan through injected adapters", async 
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-execution-plan-"));
 	const calls = [];
 	const result = await executeSubagentPlan(
-		{ mode: "single", agentScope: "user", confirmProjectAgents: true, steps: [{ agent: "runner", task: "run" }] },
+		{ mode: "single", agentScope: "global", confirmRepoAgents: true, steps: [{ agent: "runner", task: "run" }] },
 		testCtx(root),
 		{
 			deps: {
 				discoverAgents: () => ({
-					agents: [{ name: "runner", description: "Runner", source: "user", filePath: "runner.md", systemPrompt: "" }],
-					projectAgentsDir: null,
+					agents: [{ name: "runner", description: "Runner", source: "global", filePath: "runner.md", systemPrompt: "" }],
+					repoAgentsDir: null,
 					invalidAgents: [],
 				}),
 				runSingleAgent: recordingRunner(calls),
@@ -107,8 +107,8 @@ test("parallel tool results mark partial failures as errors and surface diagnost
 	];
 	const result = buildParallelToolResult(results, {
 		mode: "parallel",
-		agentScope: "user",
-		projectAgentsDir: null,
+		agentScope: "global",
+		repoAgentsDir: null,
 		invalidAgents: [],
 		results,
 	});
@@ -129,8 +129,8 @@ test("parallel summaries prefer failure diagnostics over partial assistant outpu
 	];
 	const result = buildParallelToolResult(results, {
 		mode: "parallel",
-		agentScope: "user",
-		projectAgentsDir: null,
+		agentScope: "global",
+		repoAgentsDir: null,
 		invalidAgents: [],
 		results,
 	});
@@ -196,7 +196,7 @@ test("execute reports invalid requested agents before spawning", async () => {
 
 	const result = await tool.execute(
 		"id",
-		{ agent: "broken", task: "run", agentScope: "project", confirmProjectAgents: false },
+		{ agent: "broken", task: "run", agentScope: "repo", confirmRepoAgents: false },
 		undefined,
 		undefined,
 		{ cwd: project, hasUI: false, ui: { confirm: async () => assert.fail("must not prompt or spawn") } },
@@ -214,13 +214,13 @@ test("single mode passes output controls to execution and formats bounded summar
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-single-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
-		{ agent: "runner", task: "run", agentScope: "project", confirmProjectAgents: false, timeoutMs: 50, maxOutputChars: 6, outputMode: "summary" },
+		{ agent: "runner", task: "run", agentScope: "repo", confirmRepoAgents: false, timeoutMs: 50, maxOutputChars: 6, outputMode: "summary" },
 		undefined,
 		undefined,
 		testCtx(project),
@@ -231,19 +231,19 @@ test("single mode passes output controls to execution and formats bounded summar
 	assert.deepEqual(calls, [{ defaultCwd: project, cwd: undefined, agentName: "runner", task: "run", step: undefined, maxOutputChars: 6, outputMode: "summary" }]);
 });
 
-test("single mode discovers project agents from context cwd and executes from request cwd", async () => {
+test("single mode discovers repo agents from context cwd and executes from request cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-single-"));
 	const project = path.join(root, "repo");
 	const runDir = path.join(root, "run-here");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
 	fs.mkdirSync(runDir, { recursive: true });
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
-		{ agent: "runner", task: "run", agentScope: "project", confirmProjectAgents: false, cwd: runDir },
+		{ agent: "runner", task: "run", agentScope: "repo", confirmRepoAgents: false, cwd: runDir },
 		undefined,
 		undefined,
 		testCtx(project),
@@ -254,22 +254,22 @@ test("single mode discovers project agents from context cwd and executes from re
 	assert.deepEqual(calls, [{ defaultCwd: project, cwd: runDir, agentName: "runner", task: "run", step: undefined }]);
 });
 
-test("parallel mode discovers project agents from context cwd and passes each task cwd to execution", async () => {
+test("parallel mode discovers repo agents from context cwd and passes each task cwd to execution", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-parallel-"));
 	const project = path.join(root, "repo");
 	const cwdA = path.join(root, "a");
 	const cwdB = path.join(root, "b");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
 	for (const dir of [cwdA, cwdB]) fs.mkdirSync(dir, { recursive: true });
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
 		{
-			agentScope: "project",
-			confirmProjectAgents: false,
+			agentScope: "repo",
+			confirmRepoAgents: false,
 			tasks: [
 				{ agent: "runner", task: "one", cwd: cwdA },
 				{ agent: "runner", task: "two", cwd: cwdB },
@@ -295,14 +295,14 @@ test("parallel mode applies per-task output controls", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-parallel-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const tool = registerExtension({ runSingleAgent: recordingRunner([]) });
 
 	const result = await tool.execute(
 		"id",
 		{
-			agentScope: "project",
-			confirmProjectAgents: false,
+			agentScope: "repo",
+			confirmRepoAgents: false,
 			tasks: [
 				{ agent: "runner", task: "short", maxOutputChars: 8 },
 				{ agent: "runner", task: "full", outputMode: "full", maxOutputChars: 30 },
@@ -325,15 +325,15 @@ test("parallel mode applies top-level cwd and output defaults", async () => {
 	const overrideCwd = path.join(root, "override-run");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
 	for (const dir of [defaultCwd, overrideCwd]) fs.mkdirSync(dir, { recursive: true });
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
 		{
-			agentScope: "project",
-			confirmProjectAgents: false,
+			agentScope: "repo",
+			confirmRepoAgents: false,
 			cwd: defaultCwd,
 			timeoutMs: 50,
 			maxOutputChars: 10,
@@ -358,22 +358,22 @@ test("parallel mode applies top-level cwd and output defaults", async () => {
 	);
 });
 
-test("chain mode discovers project agents from context cwd and passes each step cwd", async () => {
+test("chain mode discovers repo agents from context cwd and passes each step cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-chain-"));
 	const project = path.join(root, "repo");
 	const cwdA = path.join(root, "a");
 	const cwdB = path.join(root, "b");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
 	for (const dir of [cwdA, cwdB]) fs.mkdirSync(dir, { recursive: true });
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
 		{
-			agentScope: "project",
-			confirmProjectAgents: false,
+			agentScope: "repo",
+			confirmRepoAgents: false,
 			chain: [
 				{ agent: "runner", task: "first", cwd: cwdA },
 				{ agent: "runner", task: "second {previous}", cwd: cwdB },
@@ -396,15 +396,15 @@ test("chain mode uses bounded prior output for handoff when controls are set", a
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-chain-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
 		{
-			agentScope: "project",
-			confirmProjectAgents: false,
+			agentScope: "repo",
+			confirmRepoAgents: false,
 			chain: [
 				{ agent: "runner", task: "first", maxOutputChars: 6 },
 				{ agent: "runner", task: "second {previous}" },
@@ -423,15 +423,15 @@ test("chain handoff ignores summary formatting and only caps raw prior output", 
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-runtime-chain-summary-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "runner");
+	writeRepoAgent(project, "runner");
 	const calls = [];
 	const tool = registerExtension({ runSingleAgent: recordingRunner(calls) });
 
 	const result = await tool.execute(
 		"id",
 		{
-			agentScope: "project",
-			confirmProjectAgents: false,
+			agentScope: "repo",
+			confirmRepoAgents: false,
 			chain: [
 				{ agent: "runner", task: "first", outputMode: "summary" },
 				{ agent: "runner", task: "second {previous}", outputMode: "summary", maxOutputChars: 40 },
@@ -447,18 +447,18 @@ test("chain handoff ignores summary formatting and only caps raw prior output", 
 	assert.equal(result.content[0].text, "[runner] completed: output:second output:first");
 });
 
-test("project-agent discovery uses context cwd, not the requested execution cwd", async () => {
+test("repo-agent discovery uses context cwd, not the requested execution cwd", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-cwd-discovery-"));
 	const project = path.join(root, "repo");
 	const runProject = path.join(root, "run-repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "ctx-agent");
-	writeProjectAgent(runProject, "run-agent");
+	writeRepoAgent(project, "ctx-agent");
+	writeRepoAgent(runProject, "run-agent");
 	const tool = registerExtension({ runSingleAgent: async () => assert.fail("must not execute unknown agents") });
 
 	const result = await tool.execute(
 		"id",
-		{ agent: "run-agent", task: "run", agentScope: "project", confirmProjectAgents: false, cwd: runProject },
+		{ agent: "run-agent", task: "run", agentScope: "repo", confirmRepoAgents: false, cwd: runProject },
 		undefined,
 		undefined,
 		testCtx(project),
@@ -467,19 +467,19 @@ test("project-agent discovery uses context cwd, not the requested execution cwd"
 	assert.equal(result.isError, true);
 	assert.match(result.content[0].text, /Unknown agent: "run-agent"/);
 	assert.match(result.content[0].text, /Available agents: ctx-agent \(repo\)/);
-	assert.equal(result.details.projectAgentsDir, path.join(project, ".pi", "agents"));
+	assert.equal(result.details.repoAgentsDir, path.join(project, ".pi", "agents"));
 });
 
 test("repo-local agents fail closed in headless mode by default", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-headless-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "danger", "tools: read, bash\nmodel: model-a");
+	writeRepoAgent(project, "danger", "tools: read, bash\nmodel: model-a");
 	const tool = registerExtension();
 
 	const result = await tool.execute(
 		"id",
-		{ agent: "danger", task: "run", agentScope: "project" },
+		{ agent: "danger", task: "run", agentScope: "repo" },
 		undefined,
 		undefined,
 		{ cwd: project, hasUI: false, ui: { confirm: async () => assert.fail("must not prompt without UI") } },
@@ -497,13 +497,13 @@ test("interactive repo-local confirmation can cancel before execution", async ()
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-confirm-"));
 	const project = path.join(root, "repo");
 	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
-	writeProjectAgent(project, "danger", "tools: read, write");
+	writeRepoAgent(project, "danger", "tools: read, write");
 	const tool = registerExtension();
 	let promptMessage = "";
 
 	const result = await tool.execute(
 		"id",
-		{ agent: "danger", task: "run", agentScope: "project" },
+		{ agent: "danger", task: "run", agentScope: "repo" },
 		undefined,
 		undefined,
 		{

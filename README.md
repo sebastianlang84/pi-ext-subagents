@@ -36,7 +36,7 @@ model: openai-codex/gpt-5.5
 You are a focused read-only reviewer...
 ```
 
-`tools` must be a comma-separated string. Repo-local agents override same-named global agents only when `agentScope` is `global+repo` (`both` remains a legacy alias).
+`tools` must be a comma-separated string. Repo-local agents override same-named global agents only when `agentScope` is `both`.
 
 ## Usage
 
@@ -167,13 +167,13 @@ Use chain mode when each step depends on the previous step's compressed output. 
 
 ### Repo-agent trust guidance
 
-Prefer the default `agentScope: "global"` for untrusted repositories. Use `agentScope: "repo"` or `"global+repo"` only when you trust the repo-controlled `.pi/agents` prompts; interactive runs show confirmation details before executing repo-local agents. Legacy aliases `"user"`, `"project"`, and `"both"` are still accepted.
+Prefer the default `agentScope: "global"` for untrusted repositories. Use `agentScope: "repo"` or `"both"` only when you trust the repo-controlled `.pi/agents` prompts; interactive runs show confirmation details before executing repo-local agents.
 
 ## Troubleshooting
 
 - **Unknown agents:** use a configured agent name, not a generic placeholder such as `general`; verify the agent file exists in `~/.pi/agent/agents/*.md` for global scope or `.pi/agents/*.md` for repo scope, and that the requested `agentScope` includes that source.
 - **Invalid frontmatter:** ensure each agent file has `name` and `description` frontmatter. `tools` must be a comma-separated string, not a YAML list.
-- **Repo agents fail in JSON/headless mode:** repo-local agents fail closed unless `confirmProjectAgents: false` is explicitly set for a trusted repository.
+- **Repo agents fail in JSON/headless mode:** repo-local agents fail closed unless `confirmRepoAgents: false` is explicitly set for a trusted repository.
 - **JSON-mode diagnostics:** malformed subagent JSON stdout events are skipped and recorded in the result diagnostics so later valid events can still complete.
 - **Partial parallel failures:** inspect each task result. Successful task outputs remain available, while failed tasks include `stopReason`, stderr/error diagnostics, and a non-success tool result.
 
@@ -194,15 +194,13 @@ Use repo-local agents only for trusted repositories:
 or combine both sources:
 
 ```json
-{ "agentScope": "global+repo" }
+{ "agentScope": "both" }
 ```
-
-Legacy aliases remain accepted for compatibility: `"user"` → `"global"`, `"project"` → `"repo"`, and `"both"` → `"global+repo"`.
 
 Repo-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution and shows the agent model, tools, file path/realpath, plus warnings for mutation-capable tools such as `bash`, `write`, and `edit`. In headless/JSON/print modes, it fails closed with the same diagnostics unless you explicitly set:
 
 ```json
-{ "confirmProjectAgents": false }
+{ "confirmRepoAgents": false }
 ```
 
 Only disable confirmation for repositories you trust.

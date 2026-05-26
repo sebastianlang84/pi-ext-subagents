@@ -3,8 +3,8 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import {
 	discoverAgents as defaultDiscoverAgents,
 	formatAgentSource,
-	formatProjectAgentTrustDiagnostics,
-	getProjectAgentTrustDecision,
+	formatRepoAgentTrustDiagnostics,
+	getRepoAgentTrustDecision,
 	normalizeAgentScope,
 	type AgentSource,
 	type InvalidAgentDiagnostic,
@@ -28,12 +28,12 @@ import {
 
 const DEFAULT_MAX_CONCURRENCY = 4;
 
-export type ProjectAgentConfirmer = (title: string, message: string) => Promise<boolean>;
+export type RepoAgentConfirmer = (title: string, message: string) => Promise<boolean>;
 
 export interface SubagentExecutionDeps {
 	discoverAgents?: typeof defaultDiscoverAgents;
 	runSingleAgent?: typeof defaultRunSingleAgent;
-	confirmProjectAgents?: ProjectAgentConfirmer;
+	confirmRepoAgents?: RepoAgentConfirmer;
 }
 
 export interface SubagentExecutionContext {
@@ -151,7 +151,7 @@ export async function executeSubagentRequest(
 		const invalidDiagnostics = formatInvalidAgentDiagnostics(discovery.invalidAgents);
 		return {
 			content: [{ type: "text", text: `${message}\nAvailable agents: ${available}${invalidDiagnostics ? `\n${invalidDiagnostics}` : ""}` }],
-			details: { mode, agentScope: scope, projectAgentsDir: discovery.projectAgentsDir, invalidAgents: discovery.invalidAgents, results: [] },
+			details: { mode, agentScope: scope, repoAgentsDir: discovery.repoAgentsDir, invalidAgents: discovery.invalidAgents, results: [] },
 			isError: true,
 		};
 	}
@@ -166,7 +166,7 @@ export async function executeSubagentPlan(
 ): Promise<AgentToolResult<SubagentDetails>> {
 	const discoverAgentsImpl = options.deps?.discoverAgents ?? defaultDiscoverAgents;
 	const runSingleAgentImpl = options.deps?.runSingleAgent ?? defaultRunSingleAgent;
-	const confirmProjectAgents = options.deps?.confirmProjectAgents ?? ctx.ui.confirm.bind(ctx.ui);
+	const confirmRepoAgents = options.deps?.confirmRepoAgents ?? ctx.ui.confirm.bind(ctx.ui);
 	const { signal, onUpdate } = options;
 
 	const planAgentScope = normalizeAgentScope(plan.agentScope) ?? "global";
@@ -178,7 +178,7 @@ export async function executeSubagentPlan(
 		(results: SingleResult[]): SubagentDetails => ({
 			mode,
 			agentScope: planAgentScope,
-			projectAgentsDir: discovery.projectAgentsDir,
+			repoAgentsDir: discovery.repoAgentsDir,
 			invalidAgents: discovery.invalidAgents,
 			results,
 		});
@@ -201,15 +201,15 @@ export async function executeSubagentPlan(
 		};
 	}
 
-	const trustDecision = getProjectAgentTrustDecision(agents, requestedAgentNames(plan), plan.confirmProjectAgents);
+	const trustDecision = getRepoAgentTrustDecision(agents, requestedAgentNames(plan), plan.confirmRepoAgents);
 	if (trustDecision.requiresApproval) {
-		const diagnostics = formatProjectAgentTrustDiagnostics(trustDecision.projectAgents, discovery.projectAgentsDir);
+		const diagnostics = formatRepoAgentTrustDiagnostics(trustDecision.repoAgents, discovery.repoAgentsDir);
 		if (!ctx.hasUI) {
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Canceled: repo-local agents require interactive confirmation in this mode. Set confirmProjectAgents: false only for trusted repositories.\n${diagnostics}`,
+						text: `Canceled: repo-local agents require interactive confirmation in this mode. Set confirmRepoAgents: false only for trusted repositories.\n${diagnostics}`,
 					},
 				],
 				details: makeDetails(plan.mode)([]),
@@ -217,7 +217,7 @@ export async function executeSubagentPlan(
 			};
 		}
 
-		const ok = await confirmProjectAgents(
+		const ok = await confirmRepoAgents(
 			"Run repo-local agents?",
 			`${diagnostics}\n\nRepo agents are repo-controlled. Only continue for trusted repositories.`,
 		);

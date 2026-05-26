@@ -1,4 +1,4 @@
-import { normalizeAgentScope, type AgentScope, type AgentScopeInput } from "./agents.js";
+import { normalizeAgentScope, type AgentScope } from "./agents.js";
 
 const MAX_PARALLEL_TASKS = 8;
 
@@ -23,8 +23,8 @@ export interface SubagentParams extends RuntimeControls {
 	tasks?: RequestTask[];
 	chain?: RequestTask[];
 	maxCalls?: number;
-	agentScope?: AgentScopeInput;
-	confirmProjectAgents?: boolean;
+	agentScope?: AgentScope;
+	confirmRepoAgents?: boolean;
 	cwd?: string;
 }
 
@@ -38,7 +38,7 @@ export interface ExecutionStep extends RuntimeControls {
 export interface ExecutionPlan {
 	mode: SubagentMode;
 	agentScope: AgentScope;
-	confirmProjectAgents: boolean;
+	confirmRepoAgents: boolean;
 	steps: ExecutionStep[];
 }
 
@@ -132,10 +132,10 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 	}
 
 	const agentScope = normalizeAgentScope(params.agentScope);
-	const confirmProjectAgents = params.confirmProjectAgents ?? true;
+	const confirmRepoAgents = params.confirmRepoAgents ?? true;
 
 	if (!agentScope) {
-		throw new RequestValidationError('agentScope must be one of "global", "repo", or "global+repo". Legacy aliases "user", "project", and "both" are also accepted.');
+		throw new RequestValidationError('agentScope must be one of "global", "repo", or "both".');
 	}
 
 	if (hasSingleFields) {
@@ -143,7 +143,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 		return {
 			mode: "single",
 			agentScope,
-			confirmProjectAgents,
+			confirmRepoAgents,
 			steps: [validateTaskItem({ agent: params.agent, task: params.task, cwd: params.cwd, maxOutputChars: params.maxOutputChars, outputMode: params.outputMode }, "single")],
 		};
 	}
@@ -160,7 +160,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 		return {
 			mode: "parallel",
 			agentScope,
-			confirmProjectAgents,
+			confirmRepoAgents,
 			steps: params.tasks.map((item, index) => validateTaskItem(withDefaults(item, defaults), `tasks[${index}]`)),
 		};
 	}
@@ -171,7 +171,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 	return {
 		mode: "chain",
 		agentScope,
-		confirmProjectAgents,
+		confirmRepoAgents,
 		steps: params.chain.map((item, index) => ({ ...validateTaskItem(withDefaults(item, defaults), `chain[${index}]`), step: index + 1 })),
 	};
 }

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 3.0.0 - 2026-05-27
+
+SemVer impact: major.
+
+- Simplify `agentScope` to only `global`, `repo`, or `both`; remove `user`, `project`, and `global+repo` compatibility aliases from the public tool schema and request validation.
+- Rename repo-agent trust/result fields from `confirmProjectAgents` and `projectAgentsDir` to `confirmRepoAgents` and `repoAgentsDir`.
+
 ## 2.0.0 - 2026-05-25
 
 SemVer impact: major.

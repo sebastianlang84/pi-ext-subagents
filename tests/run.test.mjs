@@ -32,7 +32,7 @@ class FakeProcess extends EventEmitter {
 	}
 }
 
-const agent = { name: "scout", description: "Scout", source: "user", systemPrompt: "", filePath: "/tmp/scout.md" };
+const agent = { name: "scout", description: "Scout", source: "global", systemPrompt: "", filePath: "/tmp/scout.md" };
 
 function message(text) {
 	return {
@@ -50,7 +50,7 @@ function startRun(fake, extra = {}) {
 		agents: [agent],
 		agentName: "scout",
 		task: "do work",
-		makeDetails: (results) => ({ mode: "single", agentScope: "user", projectAgentsDir: null, results }),
+		makeDetails: (results) => ({ mode: "single", agentScope: "global", repoAgentsDir: null, results }),
 		spawner: () => fake,
 		...extra,
 	});

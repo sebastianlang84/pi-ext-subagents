@@ -91,7 +91,7 @@ function formatResultAgentSource(source: SingleResult["agentSource"]): "global" 
 function resultSourceSuffix(result: SingleResult, details: SubagentDetails, status: DisplayTone): string | undefined {
 	const source = formatResultAgentSource(result.agentSource);
 	const scope = normalizeAgentScope(details.agentScope) ?? "global";
-	if (scope === "global+repo") return `${source} via global+repo`;
+	if (scope === "both") return `${source} via both`;
 	if (source !== "global") return source;
 	return undefined;
 }

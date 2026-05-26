@@ -90,7 +90,7 @@ Hide `(global)` for normal single global results because it duplicates the reque
 
 - resolved source is `repo`
 - resolved source is `unknown`
-- requested scope is `global+repo`, where the resolved source matters even if it is `global`
+- requested scope is `both`, where the resolved source matters even if it is `global`
 - an error/diagnostic case needs source clarity
 
 Examples:
@@ -101,7 +101,7 @@ Looks good. No issues found.
 ```
 
 ```text
-✓ reviewer (repo via global+repo)
+✓ reviewer (repo via both)
 Looks good. No issues found.
 ```
 
@@ -224,7 +224,7 @@ Update `tests/display.test.mjs` to encode the new UX contract:
 
 - single global result has the intended concrete shape, e.g. `success reviewer` followed directly by items/final output, with no single-mode `## reviewer` and preferably no `## output`
 - single global result does not show the default `(global)` suffix
-- single repo, unknown, or ambiguous `global+repo` case exposes resolved source in the rendered/stringified output if we decide source is diagnostically important
+- single repo, unknown, or ambiguous `both` case exposes resolved source in the rendered/stringified output if we decide source is diagnostically important
 - parallel display keeps per-agent headings
 - chain display keeps per-step headings
 
