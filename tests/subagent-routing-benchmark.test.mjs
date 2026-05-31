@@ -8,6 +8,7 @@ import { loadJsonFile, scoreBenchmark, scoreDecision, summarizeFixtures } from "
 import { buildDecisionPrompt, extractFinalTextFromPiJson, parseDecisionText, runBenchmarkDecisions, runPiDecision } from "../scripts/run-subagent-routing-benchmark.mjs";
 
 const fixtures = loadJsonFile("docs/benchmarks/subagent-routing-fixtures.json");
+const dispatcherSmokeFixtures = loadJsonFile("docs/benchmarks/dispatcher-smoke-fixtures.json");
 const promptOnlyDecisions = loadJsonFile("docs/benchmarks/subagent-routing-prompt-only-decisions.json");
 
 function decision(fixtureId, orchestration, overrides = {}) {
@@ -26,6 +27,31 @@ test("subagent routing fixtures are scoreable", () => {
 	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "positive").length, 6);
 	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "negative").length, 6);
 	assert.equal(fixtures.fixtures.filter((fixture) => fixture.group === "schema-gravity").length, 4);
+});
+
+test("dispatcher smoke fixtures document optional preflight boundaries", () => {
+	const ids = dispatcherSmokeFixtures.fixtures.map((fixture) => fixture.id);
+	assert.equal(dispatcherSmokeFixtures.version, 1);
+	assert.equal(dispatcherSmokeFixtures.agent, "dispatcher");
+	assert.deepEqual(ids, ["D1", "D2", "D3", "D4"]);
+	assert.equal(new Set(ids).size, ids.length);
+
+	const byId = Object.fromEntries(dispatcherSmokeFixtures.fixtures.map((fixture) => [fixture.id, fixture]));
+	assert.equal(byId.D1.expectedRoute, "direct");
+	assert.equal(byId.D1.expectedScoutNeeded, false);
+	assert.equal(byId.D1.expectedScoutSplit, "none");
+	assert.equal(byId.D2.expectedRoute, "sequence");
+	assert.deepEqual(byId.D2.expectedSequence, ["2 scouts", "planner"]);
+	assert.equal(byId.D2.expectedScoutSplit, "2 scouts");
+	assert.equal(byId.D2.expectedOverloadRisk, "high");
+	assert.equal(byId.D3.expectedRoute, "parallel scouts");
+	assert.equal(byId.D3.expectedScoutSplit, "3 scouts");
+	assert.ok(byId.D3.expectedParallelism.length >= 2);
+	assert.equal(byId.D4.expectedRoute, "sequence");
+	assert.deepEqual(byId.D4.expectedSequence, ["parallel scouts", "planner"]);
+	assert.equal(byId.D4.expectedScoutSplit, "2-4 scouts");
+	assert.equal(byId.D4.expectedOverloadRisk, "high");
+	assert.ok(byId.D4.expectedParallelism.length <= 4);
 });
 
 test("prompt-injection fixtures score by task intent instead of injected routing instructions", () => {

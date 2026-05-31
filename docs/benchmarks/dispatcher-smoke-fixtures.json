@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "purpose": "Small smoke corpus for an optional dispatcher preflight agent. These fixtures document the expected routing and scout-splitting boundaries; they are not a replacement for live subagent smoke runs.",
+  "agent": "dispatcher",
+  "fixtures": [
+    {
+      "id": "D1",
+      "group": "tiny-direct",
+      "prompt": "Bitte speichere als Memory-Todo: später README typo fixen.",
+      "expectedRoute": "direct",
+      "expectedSize": "tiny",
+      "expectedRisk": "low",
+      "expectedScoutNeeded": false,
+      "expectedScoutSplit": "none",
+      "expectedOverloadRisk": "low",
+      "notes": "A simple memory/TODO request should not trigger scout, planner, or parallel delegation."
+    },
+    {
+      "id": "D2",
+      "group": "risky-sequence",
+      "prompt": "In an unfamiliar repo, implement an auth/session schema migration that touches API contracts, database persistence, and tests. The caller has not provided file paths.",
+      "expectedRoute": "sequence",
+      "expectedSequence": ["2 scouts", "planner"],
+      "expectedSize": "large",
+      "expectedRisk": "high",
+      "expectedScoutNeeded": true,
+      "expectedScoutSplit": "2 scouts",
+      "expectedOverloadRisk": "high",
+      "notes": "Unknown files plus auth/schema risk should discover context before planning sequencing; split API/contracts from DB/persistence/tests if one scout would be overloaded."
+    },
+    {
+      "id": "D3",
+      "group": "parallel-diagnosis",
+      "prompt": "Investigate why a newsletter lacks YouTube transcript-derived evidence; likely sources are transcript-miner output data, newsletter-writer run artifacts, and writer/auditor code. The user asks for read-only diagnosis first.",
+      "expectedRoute": "parallel scouts",
+      "expectedScoutSplit": "3 scouts",
+      "expectedParallelism": ["transcript evidence", "run artifacts", "code path"],
+      "expectedSize": "medium",
+      "expectedRisk": "low",
+      "expectedScoutNeeded": true,
+      "expectedOverloadRisk": "high",
+      "notes": "Independent read-only evidence lanes are suitable for parallel scouts; dispatcher should not inspect those lanes itself or send one overloaded scout."
+    },
+    {
+      "id": "D4",
+      "group": "broad-overload",
+      "prompt": "Audit a large unfamiliar monorepo for architecture risks, flaky tests, CI gaps, docs drift, and security-sensitive configuration. Return an improvement plan after read-only investigation.",
+      "expectedRoute": "sequence",
+      "expectedSequence": ["parallel scouts", "planner"],
+      "expectedScoutSplit": "2-4 scouts",
+      "expectedParallelism": ["architecture/code", "tests/CI", "docs", "security/config"],
+      "expectedSize": "large",
+      "expectedRisk": "high",
+      "expectedScoutNeeded": true,
+      "expectedOverloadRisk": "high",
+      "notes": "A broad multi-area audit should be split into bounded scouts capped at 2-4 lanes rather than overloading one scout."
+    }
+  ]
+}
