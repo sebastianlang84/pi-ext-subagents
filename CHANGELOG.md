@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Move scope/risk probing into the compact subagent tool guidance so fresh installs need less external `AGENTS.md` delegation policy.
+- Trim prompt-facing subagent role examples to configured roles, replacing disabled `oracle` with active `verifier` and `dispatcher` examples.
+
 ## 3.0.0 - 2026-05-27
 
 SemVer impact: major.

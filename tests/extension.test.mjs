@@ -158,12 +158,16 @@ test("package manifest pi.extensions points to the source entrypoint", () => {
 test("tool prompt guidance discourages invented generic agents", () => {
 	const tool = registerExtension();
 	const guidance = tool.promptGuidelines.join("\n");
+	assert.match(guidance, /Probe scope\/risk first/);
+	assert.match(guidance, /delegate only needed non-tiny agents/);
+	assert.match(guidance, /main owns judgment/);
 	assert.match(guidance, /Use configured agent names/);
 	assert.match(guidance, /not generic general/);
 	assert.match(guidance, /examples/);
-	for (const role of ["scout", "reviewer", "worker", "planner", "oracle"]) {
+	for (const role of ["scout", "reviewer", "worker", "verifier", "planner", "dispatcher"]) {
 		assert.match(guidance, new RegExp(role));
 	}
+	assert.doesNotMatch(guidance, /oracle/);
 });
 
 test("execute reports normalized invalid-mode errors", async () => {

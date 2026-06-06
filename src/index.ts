@@ -148,8 +148,8 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 		description: "Run isolated Pi subagents.",
 		promptSnippet: "Run subagents.",
 		promptGuidelines: [
-			"Non-tiny scoped delegation; parallel=independent; chain=handoffs; main owns judgment.",
-			"Use configured agent names, not generic general; examples: scout/reviewer/worker/planner/oracle.",
+			"Probe scope/risk first; delegate only needed non-tiny agents; parallel=independent; chain=handoffs; main owns judgment.",
+			"Use configured agent names, not generic general; examples: scout/reviewer/worker/verifier/planner/dispatcher.",
 		],
 		parameters: SubagentParams,
 

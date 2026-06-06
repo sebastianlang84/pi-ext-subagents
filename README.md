@@ -119,9 +119,9 @@ Prefer absolute `cwd` values. The extension validates that `cwd` is a non-empty 
 
 ## Workflow guidance
 
-The tool injects compact prompt guidance for when to delegate: use subagents for context isolation, independent review, or bounded specialist work; skip tiny tasks. Parallel mode is best for independent lanes, while chain mode is best for handoffs that depend on prior output. The main agent remains responsible for final judgment.
+The tool injects compact prompt guidance to probe scope/risk first, delegate only needed non-tiny agents, use parallel mode for independent lanes, use chain mode for dependent handoffs, and keep final judgment with the main agent.
 
-Use configured agent names rather than generic placeholders such as `general`. Example roles, when available, include `scout`, `reviewer`, `worker`, `planner`, and `oracle`.
+Use configured agent names rather than generic placeholders such as `general`. Example roles, when available, include `scout`, `reviewer`, `worker`, `verifier`, `planner`, and `dispatcher`.
 
 Keep delegated prompts explicit: goal, scope, constraints, allowed paths/tools, stop conditions, and desired output shape.
 
