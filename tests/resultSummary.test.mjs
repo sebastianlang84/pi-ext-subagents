@@ -20,12 +20,29 @@ function agentResult(agent, text, exitCode = 0, overrides = {}) {
 	};
 }
 
-test("parallel result summary truncates previews through the policy seam", () => {
-	const longOutput = "x".repeat(101);
+test("parallel result summary truncates previews through the policy seam without noisy single-task headers", () => {
+	const longOutput = "x".repeat(301);
 	const summary = buildParallelResultSummary([agentResult("ok", longOutput)]);
 
 	assert.equal(summary.isError, false);
-	assert.match(summary.text, new RegExp(`\\[ok\\] completed: ${"x".repeat(100)}\\.\\.\\.`));
+	assert.match(summary.text, new RegExp(`^\\[ok\\] completed: ${"x".repeat(300)}\\.\\.\\.$`));
+	assert.doesNotMatch(summary.text, /Parallel:|Subagent results:/);
+});
+
+test("parallel result summary uses a neutral multi-task header", () => {
+	const summary = buildParallelResultSummary([agentResult("one", "ok"), agentResult("two", "bad", 1, { stderr: "failed" })]);
+
+	assert.equal(summary.isError, true);
+	assert.match(summary.text, /^Subagent results: 1\/2 succeeded/);
+	assert.doesNotMatch(summary.text, /Parallel:/);
+});
+
+test("parallel result summary replaces storage-only truncation markers with recovery guidance", () => {
+	const summary = buildParallelResultSummary([agentResult("scout", "[truncated after 65536 chars]")]);
+
+	assert.match(summary.text, /Output exceeded the subagent storage limit/);
+	assert.match(summary.text, /narrower prompt/);
+	assert.doesNotMatch(summary.text, /completed: \[truncated after 65536 chars\]/);
 });
 
 test("parallel result summary treats timeout stop reasons as failures", () => {

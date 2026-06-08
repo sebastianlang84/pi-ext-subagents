@@ -160,6 +160,7 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 		renderCall(args, theme, context) {
 			const scope = normalizeAgentScope(args.agentScope) ?? "global";
 			const { expanded } = context;
+			const scopeSuffix = expanded || scope !== "global" ? theme.fg("muted", ` [${scope}]`) : "";
 			const summarizeTask = (task: string, title?: string) => {
 				if (expanded) return task;
 				const text = title?.trim() || task.split("\n")[0].trim();
@@ -169,7 +170,7 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 				let text =
 					theme.fg("toolTitle", theme.bold("subagent ")) +
 					theme.fg("accent", `chain (${args.chain.length} steps)`) +
-					theme.fg("muted", ` [${scope}]`);
+					scopeSuffix;
 				const visibleSteps = expanded ? args.chain.length : Math.min(args.chain.length, 3);
 				for (let i = 0; i < visibleSteps; i++) {
 					const step = args.chain[i];
@@ -189,7 +190,7 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 				let text =
 					theme.fg("toolTitle", theme.bold("subagent ")) +
 					theme.fg("accent", `parallel (${args.tasks.length} tasks)`) +
-					theme.fg("muted", ` [${scope}]`);
+					scopeSuffix;
 				const visibleTasks = expanded ? args.tasks : args.tasks.slice(0, 3);
 				for (const t of visibleTasks) {
 					text += `\n  ${theme.fg("accent", t.agent)}${theme.fg("dim", ` ${summarizeTask(t.task, t.title)}`)}`;
@@ -202,7 +203,7 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 			let text =
 				theme.fg("toolTitle", theme.bold("subagent ")) +
 				theme.fg("accent", agentName) +
-				theme.fg("muted", ` [${scope}]`);
+				scopeSuffix;
 			text += `\n  ${theme.fg("dim", preview)}`;
 			return new Text(text, 0, 0);
 		},

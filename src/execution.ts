@@ -17,7 +17,7 @@ import {
 	type ExecutionStep,
 	type SubagentParams,
 } from "./request.js";
-import { buildParallelToolResult, defaultResultSummaryPolicy, getFailureDiagnostic, isSuccessfulResult } from "./resultSummary.js";
+import { buildParallelToolResult, defaultResultSummaryPolicy, getFailureDiagnostic, isSuccessfulResult, normalizeSummaryOutput } from "./resultSummary.js";
 import {
 	getFinalOutput,
 	runSingleAgent as defaultRunSingleAgent,
@@ -79,10 +79,10 @@ function truncateOutput(output: string, maxChars?: number): string {
 }
 
 function formatStepOutput(result: SingleResult, step: ExecutionStep, defaultMode: "summary" | "full"): string {
-	const output = getFinalOutput(result.messages);
+	const output = normalizeSummaryOutput(getFinalOutput(result.messages));
 	const mode = step.outputMode ?? defaultMode;
 	if (mode === "summary") {
-		return `[${result.agent}] completed: ${truncateOutput(output.trim(), step.maxOutputChars ?? 100) || "(no output)"}`;
+		return `[${result.agent}] completed: ${truncateOutput(output.trim(), step.maxOutputChars ?? 300) || "(no output)"}`;
 	}
 	return truncateOutput(output, step.maxOutputChars);
 }
@@ -294,11 +294,9 @@ export async function executeSubagentPlan(
 		}));
 
 		const emitParallelUpdate = () => {
-			if (onUpdate) {
-				const running = allResults.filter((r) => r.exitCode === -1).length;
-				const done = allResults.filter((r) => r.exitCode !== -1).length;
+			if (onUpdate && allResults.length > 1) {
 				onUpdate({
-					content: [{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running...` }],
+					content: [{ type: "text", text: "Subagents running..." }],
 					details: makeDetails("parallel")([...allResults]),
 				});
 			}

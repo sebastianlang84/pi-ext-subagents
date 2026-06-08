@@ -125,6 +125,28 @@ function truncateText(text: string, maxChars: number): string {
 	return `${text.slice(0, maxChars - 3)}...`;
 }
 
+function buildStorageFallbackMessage(role: unknown, text: string, maxStoredMessageChars: number): Message | undefined {
+	const safeRole = typeof role === "string" && ["assistant", "user", "toolResult"].includes(role) ? role : "assistant";
+	const build = (value: string) => ({ role: safeRole, content: [{ type: "text", text: value }] }) as Message;
+	if (serializedLength(build("")) > maxStoredMessageChars) return undefined;
+	if (serializedLength(build(text)) <= maxStoredMessageChars) return build(text);
+
+	let best = "";
+	let low = 0;
+	let high = text.length;
+	while (low <= high) {
+		const mid = Math.floor((low + high) / 2);
+		const candidate = text.slice(0, mid);
+		if (serializedLength(build(candidate)) <= maxStoredMessageChars) {
+			best = candidate;
+			low = mid + 1;
+		} else {
+			high = mid - 1;
+		}
+	}
+	return build(best);
+}
+
 function isProcessFailureStopReason(stopReason?: string): boolean {
 	return stopReason === "error" || stopReason === "aborted" || stopReason === "timeout";
 }
@@ -134,7 +156,7 @@ function limitMessageForStorage(
 	message: Message,
 	maxStoredMessageChars: number,
 	maxStderrBytes: number,
-): Message {
+): Message | undefined {
 	if (serializedLength(message) <= maxStoredMessageChars) return message;
 
 	result.stderr = appendLimited(
@@ -156,13 +178,20 @@ function limitMessageForStorage(
 	} as Message;
 	if (serializedLength(truncated) <= maxStoredMessageChars) return truncated;
 
-	const fallback = { role: (message as any).role ?? "assistant", content: [{ type: "text", text: "" }] };
-	const fallbackOverhead = serializedLength(fallback);
-	const fallbackText = `[truncated after ${maxStoredMessageChars} chars]`;
-	return {
-		role: fallback.role,
-		content: [{ type: "text", text: truncateText(fallbackText, Math.max(0, maxStoredMessageChars - fallbackOverhead)) }],
-	} as Message;
+	const preservedText = textParts.map((part: any) => String(part.text ?? "")).join("\n\n").trim();
+	const fallbackText = preservedText
+		? `Output truncated after ${maxStoredMessageChars} chars; preserved prefix:\n${preservedText}`
+		: `[truncated after ${maxStoredMessageChars} chars]`;
+	const fallbackMessage = buildStorageFallbackMessage((message as any).role, fallbackText, maxStoredMessageChars);
+	if (!fallbackMessage) {
+		result.stderr = appendLimited(
+			result.stderr,
+			`Subagent message could not be stored within ${maxStoredMessageChars} chars; message event was dropped.\n`,
+			maxStderrBytes,
+			"stderr",
+		);
+	}
+	return fallbackMessage;
 }
 
 export function getFinalOutput(messages: Message[]): string {
@@ -378,7 +407,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 					const storedMsg = currentResult.messages.length < maxStoredMessages
 						? limitMessageForStorage(currentResult, msg, maxStoredMessageChars, maxStderrBytes)
 						: msg;
-					addMessageToResult(currentResult, storedMsg, maxStoredMessages, maxStderrBytes);
+					if (storedMsg) addMessageToResult(currentResult, storedMsg, maxStoredMessages, maxStderrBytes);
 					ingestAssistantUsage(currentResult, msg);
 					emitUpdate();
 				}
@@ -388,7 +417,7 @@ export async function runSingleAgent(options: RunSingleAgentOptions): Promise<Si
 					const storedMsg = currentResult.messages.length < maxStoredMessages
 						? limitMessageForStorage(currentResult, msg, maxStoredMessageChars, maxStderrBytes)
 						: msg;
-					addMessageToResult(currentResult, storedMsg, maxStoredMessages, maxStderrBytes);
+					if (storedMsg) addMessageToResult(currentResult, storedMsg, maxStoredMessages, maxStderrBytes);
 					emitUpdate();
 				}
 

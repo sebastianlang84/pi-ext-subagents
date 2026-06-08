@@ -176,6 +176,57 @@ test("truncates oversized stored messages while preserving usage", async () => {
 	assert.equal(result.usage.output, 3);
 });
 
+test("storage fallback stays within cap for escape-heavy output", async () => {
+	const fake = new FakeProcess();
+	const maxStoredMessageChars = 220;
+	const escapeHeavy = `useful-prefix ${"\\\\\"\n".repeat(100)}`;
+	const promise = startRun(fake, { maxStoredMessageChars });
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "message_end", message: message(escapeHeavy) }) + "\n");
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.messages.length, 1);
+	assert.ok(JSON.stringify(result.messages[0]).length <= maxStoredMessageChars);
+	assert.match(getFinalOutput(result.messages), /Output truncated after 220 chars/);
+	assert.match(getFinalOutput(result.messages), /useful-prefix/);
+	assert.match(result.stderr, /Subagent message truncated after 220 chars/);
+});
+
+test("storage fallback drops messages that cannot fit even the minimal fallback", async () => {
+	const fake = new FakeProcess();
+	const promise = startRun(fake, { maxStoredMessageChars: 1 });
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "message_end", message: message("x".repeat(500)) }) + "\n");
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.messages.length, 0);
+	assert.match(result.stderr, /could not be stored within 1 chars/);
+	assert.equal(result.usage.input, 10);
+	assert.equal(result.usage.output, 3);
+});
+
+test("storage fallback preserves toolResult roles", async () => {
+	const fake = new FakeProcess();
+	const promise = startRun(fake, { maxStoredMessageChars: 160 });
+	setImmediate(() => {
+		fake.stdout.emit("data", JSON.stringify({ type: "tool_result_end", message: { role: "toolResult", content: [{ type: "text", text: "tool-output ".repeat(200) }] } }) + "\n");
+		fake.close(0);
+	});
+
+	const result = await promise;
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.messages.length, 1);
+	assert.equal(result.messages[0].role, "toolResult");
+	assert.equal(getFinalOutput(result.messages), "");
+	assert.ok(JSON.stringify(result.messages[0]).length <= 160);
+});
+
 test("passes the task prompt on stdin instead of argv", async () => {
 	const fake = new FakeProcess();
 	let spawnArgs;

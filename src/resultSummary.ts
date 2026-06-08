@@ -1,6 +1,7 @@
 import { getFinalOutput, type SingleResult, type SubagentDetails } from "./run.js";
 
-const DEFAULT_PREVIEW_CHARS = 100;
+const DEFAULT_PREVIEW_CHARS = 300;
+const STORAGE_TRUNCATION_MARKER = /^\[truncated after \d+ chars\]$/;
 
 export type ResultSummaryStatus = "completed" | "failed";
 
@@ -42,8 +43,15 @@ export const defaultResultSummaryPolicy: ResultSummaryPolicy = {
 	getFailureDiagnostic,
 };
 
+export function normalizeSummaryOutput(output: string): string {
+	const trimmed = output.trim();
+	if (!STORAGE_TRUNCATION_MARKER.test(trimmed)) return output;
+	return "Output exceeded the subagent storage limit before a useful final brief could be preserved. Rerun with a narrower prompt and ask for a concise brief.";
+}
+
 export function truncatePreview(output: string, maxChars: number): string {
-	return output.slice(0, maxChars) + (output.length > maxChars ? "..." : "");
+	const normalized = normalizeSummaryOutput(output);
+	return normalized.slice(0, maxChars) + (normalized.length > maxChars ? "..." : "");
 }
 
 function getPreviewChars(policy: ResultSummaryPolicy, result: SingleResult, status: ResultSummaryStatus): number {
@@ -64,8 +72,10 @@ export function buildParallelResultSummary(
 		};
 	});
 	const successCount = entries.filter((entry) => entry.status === "completed").length;
+	const body = entries.map((entry) => entry.text).join("\n\n");
+	const header = results.length > 1 ? `Subagent results: ${successCount}/${results.length} succeeded\n\n` : "";
 	return {
-		text: `Parallel: ${successCount}/${results.length} succeeded\n\n${entries.map((entry) => entry.text).join("\n\n")}`,
+		text: `${header}${body}`,
 		isError: successCount !== results.length,
 		successCount,
 	};

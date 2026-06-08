@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 3.1.1 - 2026-06-09
+
+SemVer impact: patch.
+
+- Improve subagent result UX: hide default `[global]` call labels in collapsed output, replace `Parallel:` result counters with neutral summaries, suppress single-task parallel progress updates, and turn storage-only truncation markers into recovery guidance.
+- Preserve storage caps for oversized subagent messages, including escape-heavy output and `toolResult` messages.
 - Archive the retired global `pi-subagents` skill text under `docs/archive/` after the extension became self-contained.
 
 ## 3.1.0 - 2026-06-09

@@ -114,7 +114,8 @@ test("parallel tool results mark partial failures as errors and surface diagnost
 	});
 
 	assert.equal(result.isError, true);
-	assert.match(result.content[0].text, /Parallel: 1\/4 succeeded/);
+	assert.match(result.content[0].text, /Subagent results: 1\/4 succeeded/);
+	assert.doesNotMatch(result.content[0].text, /Parallel:/);
 	assert.match(result.content[0].text, /\[bad\] failed: spawn failed/);
 	assert.match(result.content[0].text, /\[stopped\] failed: model stopped/);
 	assert.match(result.content[0].text, /\[aborted\] failed: Subagent was aborted\./);
@@ -147,6 +148,15 @@ test("extension loads and registers only the subagent tool", () => {
 		assert.equal(typeof tool.execute, "function");
 		assert.ok(tool.parameters);
 	}
+});
+
+test("renderCall hides default global scope in collapsed output", () => {
+	const tool = registerExtension();
+	const theme = { fg: (_color, text) => text, bold: (text) => text };
+
+	assert.equal(tool.renderCall({ agent: "scout", task: "Find context." }, theme, { expanded: false }).text, "subagent scout\n  Find context.");
+	assert.equal(tool.renderCall({ agent: "scout", task: "Find context.", agentScope: "repo" }, theme, { expanded: false }).text, "subagent scout [repo]\n  Find context.");
+	assert.equal(tool.renderCall({ agent: "scout", task: "Find context." }, theme, { expanded: true }).text, "subagent scout [global]\n  Find context.");
 });
 
 test("package manifest points to the source entrypoint and includes bundled agents", () => {
@@ -319,8 +329,43 @@ test("parallel mode applies per-task output controls", async () => {
 	);
 
 	assert.equal(result.isError, undefined);
+	assert.match(result.content[0].text, /^Subagent results: 2\/2 succeeded/);
 	assert.match(result.content[0].text, /\[runner\] completed: outpu\.\.\./);
 	assert.match(result.content[0].text, /\[runner\] completed: output:full/);
+	assert.doesNotMatch(result.content[0].text, /Parallel:/);
+});
+
+test("parallel progress updates avoid single-task and Parallel wording", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-progress-"));
+	const agents = [{ name: "runner", description: "Runner", source: "global", filePath: "runner.md", systemPrompt: "" }];
+	const deps = {
+		discoverAgents: () => ({ agents, repoAgentsDir: null, invalidAgents: [] }),
+		runSingleAgent: async (options) => {
+			options.onUpdate?.({
+				content: [{ type: "text", text: "child running" }],
+				details: options.makeDetails([{ ...agentResult(options.agentName, "", -1), agentSource: "global" }]),
+			});
+			return agentResult(options.agentName, `output:${options.task}`, 0, { agentSource: "global", task: options.task });
+		},
+	};
+
+	const singleTaskUpdates = [];
+	await executeSubagentPlan(
+		{ mode: "parallel", agentScope: "global", confirmRepoAgents: true, steps: [{ agent: "runner", task: "one" }] },
+		testCtx(root),
+		{ deps, onUpdate: (update) => singleTaskUpdates.push(update) },
+	);
+	assert.equal(singleTaskUpdates.length, 0);
+
+	const multiTaskUpdates = [];
+	await executeSubagentPlan(
+		{ mode: "parallel", agentScope: "global", confirmRepoAgents: true, steps: [{ agent: "runner", task: "one" }, { agent: "runner", task: "two" }] },
+		testCtx(root),
+		{ deps, onUpdate: (update) => multiTaskUpdates.push(update) },
+	);
+	assert.ok(multiTaskUpdates.length > 0);
+	assert.ok(multiTaskUpdates.every((update) => update.content[0].text === "Subagents running..."));
+	assert.ok(multiTaskUpdates.every((update) => !/Parallel:|\d+\/\d+/.test(update.content[0].text)));
 });
 
 test("parallel mode applies top-level cwd and output defaults", async () => {
