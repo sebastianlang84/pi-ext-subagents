@@ -23,7 +23,7 @@ After installation, restart Pi or run `/reload`; the `subagent` tool should be a
 
 ## Agent files
 
-The package bundles default `scout`, `worker`, `verifier`, `reviewer`, `planner`, and `advisor` agents, so normal routing works without any separate `pi-subagents` skill.
+The package bundles default `scout`, `worker`, `verifier`, `reviewer`, `planner`, and `advisor` agents, so normal routing works without any separate `pi-subagents` skill. The retired global skill text is archived for reference at `docs/archive/pi-subagents-skill.md`.
 
 Additional global agents live in `~/.pi/agent/agents/*.md`. Optional shared global directories can be listed in `~/.pi/agent/extensions/subagents.json`:
 

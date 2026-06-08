@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Archive the retired global `pi-subagents` skill text under `docs/archive/` after the extension became self-contained.
+
 ## 3.1.0 - 2026-06-09
 
 SemVer impact: minor.
