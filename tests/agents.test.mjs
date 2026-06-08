@@ -20,7 +20,7 @@ function writeAgent(file, frontmatter, body = "Body") {
 	fs.writeFileSync(file, `---\n${frontmatter}\n---\n\n${body}\n`);
 }
 
-test("discovers global/repo agents with repo precedence in both scope", () => {
+test("discovers global/bundled/repo agents with repo precedence in global+repo scope", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-agents-"));
 	const home = path.join(root, "home");
 	const project = path.join(root, "repo");
@@ -30,17 +30,73 @@ test("discovers global/repo agents with repo precedence in both scope", () => {
 	writeAgent(path.join(project, ".pi", "agents", "same.md"), "name: same\ndescription: Repo agent\ntools: read\nmodel: repo-model");
 	writeAgent(path.join(project, ".pi", "agents", "repo-only.md"), "name: repo-only\ndescription: Repo only");
 
-	assert.deepEqual(discoverAgents(project, "global").agents.map((a) => `${a.name}:${a.source}`), ["same:global"]);
+	const globalAgents = discoverAgents(project, "global").agents;
+	assert.equal(globalAgents.find((a) => a.name === "same")?.source, "global");
+	assert.equal(globalAgents.find((a) => a.name === "advisor")?.source, "bundled");
 	assert.deepEqual(discoverAgents(project, "repo").agents.map((a) => `${a.name}:${a.source}`).sort(), ["repo-only:repo", "same:repo"]);
 
-	const both = discoverAgents(project, "both").agents;
+	const both = discoverAgents(project, "global+repo").agents;
 	assert.equal(both.find((a) => a.name === "same")?.source, "repo");
 	assert.equal(both.find((a) => a.name === "same")?.model, "repo-model");
-	assert.deepEqual(discoverAgents(project, "global").agents.map((a) => `${a.name}:${a.source}`), ["same:global"]);
-	assert.deepEqual(discoverAgents(project, "repo").agents.map((a) => `${a.name}:${a.source}`).sort(), ["repo-only:repo", "same:repo"]);
 	assert.equal(discoverAgents(project, "both").agents.find((a) => a.name === "same")?.source, "repo");
 	assert.equal(formatAgentSource("global"), "global");
+	assert.equal(formatAgentSource("bundled"), "bundled");
 	assert.equal(formatAgentSource("repo"), "repo");
+});
+
+test("discovers bundled agents and configured safe global directories", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-config-dirs-"));
+	const home = path.join(root, "home");
+	const project = path.join(root, "repo");
+	const shared = path.join(root, "shared-agents");
+	process.env.PI_CODING_AGENT_DIR = home;
+	fs.mkdirSync(path.join(project, ".git"), { recursive: true });
+	writeAgent(path.join(shared, "advisor.md"), "name: advisor\ndescription: Shared advisor");
+	writeAgent(path.join(home, "agents", "worker.md"), "name: worker\ndescription: User worker");
+	fs.mkdirSync(path.join(home, "extensions"), { recursive: true });
+	fs.writeFileSync(path.join(home, "extensions", "subagents.json"), JSON.stringify({ agentDirs: [shared] }));
+
+	const discovery = discoverAgents(project, "global");
+	assert.equal(discovery.agents.find((a) => a.name === "advisor")?.source, "global");
+	assert.equal(discovery.agents.find((a) => a.name === "advisor")?.description, "Shared advisor");
+	assert.equal(discovery.agents.find((a) => a.name === "worker")?.source, "global");
+	assert.equal(discovery.agents.find((a) => a.name === "scout")?.source, "bundled");
+	assert.deepEqual(discovery.configuredAgentDirs, [fs.realpathSync.native(shared)]);
+});
+
+test("configured agent dirs cannot bypass repo trust through paths or symlinks", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-config-safe-"));
+	const home = path.join(root, "home");
+	const project = path.join(root, "repo");
+	const shared = path.join(root, "shared-agents");
+	process.env.PI_CODING_AGENT_DIR = home;
+	fs.mkdirSync(path.join(project, ".git"), { recursive: true });
+	writeAgent(path.join(project, ".pi", "agents", "danger.md"), "name: danger\ndescription: Repo danger");
+	fs.mkdirSync(shared, { recursive: true });
+	fs.symlinkSync(path.join(project, ".pi", "agents", "danger.md"), path.join(shared, "danger.md"));
+	fs.mkdirSync(path.join(home, "extensions"), { recursive: true });
+	fs.writeFileSync(path.join(home, "extensions", "subagents.json"), JSON.stringify({ agentDirs: [path.join(project, ".pi", "agents"), shared, "relative"] }));
+
+	const discovery = discoverAgents(project, "global");
+	assert.equal(discovery.agents.find((a) => a.name === "danger"), undefined);
+	const reasons = discovery.invalidAgents.map((d) => d.reason).join("\n");
+	assert.match(reasons, /cannot bypass repo-agent trust/);
+	assert.match(reasons, /must be absolute/);
+	assert.match(reasons, /disallowed directory|symlink escapes/);
+});
+
+test("repo agent symlink escapes are rejected during discovery", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-repo-symlink-"));
+	const home = path.join(root, "home");
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = home;
+	writeAgent(path.join(root, "outside.md"), "name: outside\ndescription: Outside");
+	fs.mkdirSync(path.join(project, ".pi", "agents"), { recursive: true });
+	fs.symlinkSync(path.join(root, "outside.md"), path.join(project, ".pi", "agents", "outside.md"));
+
+	const discovery = discoverAgents(project, "repo");
+	assert.equal(discovery.agents.length, 0);
+	assert.match(discovery.invalidAgents.map((d) => d.reason).join("\n"), /symlink escapes/);
 });
 
 test("reports malformed agents, YAML-list tools, and accepts symlinked md files", () => {
@@ -59,14 +115,37 @@ test("reports malformed agents, YAML-list tools, and accepts symlinked md files"
 	assert.match(result.invalidAgents.map((d) => d.reason).join("\n"), /tools must be a comma-separated string/);
 });
 
+test("bundled agent files are self-contained and follow tool policy", () => {
+	const bundledDir = path.join(process.cwd(), "agents");
+	const roles = ["scout", "worker", "verifier", "reviewer", "planner", "advisor"];
+	for (const role of roles) assert.equal(fs.existsSync(path.join(bundledDir, `${role}.md`)), true);
+	const discovery = loadAgentsFromDir(bundledDir, "bundled");
+	assert.deepEqual(discovery.invalidAgents, []);
+	const byName = new Map(discovery.agents.map((agent) => [agent.name, agent]));
+	assert.deepEqual([...byName.keys()].sort(), roles.sort());
+	for (const [name, agent] of byName) {
+		assert.equal(agent.model, undefined, `${name} should not force a model`);
+		if (name !== "worker") {
+			assert.equal(agent.tools?.includes("write"), false, `${name} must not write`);
+			assert.equal(agent.tools?.includes("edit"), false, `${name} must not edit`);
+		}
+		if (["advisor", "reviewer", "planner"].includes(name)) assert.equal(agent.tools?.includes("bash"), false, `${name} must not declare bash`);
+	}
+	assert.match(byName.get("advisor")?.systemPrompt ?? "", /scout brief/);
+	assert.doesNotMatch(byName.get("advisor")?.systemPrompt ?? "", /Review Packet.*required|Verification Report.*required/);
+	assert.match(byName.get("verifier")?.systemPrompt ?? "", /Run only commands explicitly listed/);
+});
+
 test("repo-agent trust policy requires approval unless explicitly disabled", () => {
 	const agents = [
 		{ name: "global", source: "global", description: "", systemPrompt: "", filePath: "" },
+		{ name: "bundled", source: "bundled", description: "", systemPrompt: "", filePath: "" },
 		{ name: "repo", source: "repo", description: "", systemPrompt: "", filePath: "" },
 	];
 	assert.equal(getRepoAgentTrustDecision(agents, ["repo"], true).requiresApproval, true);
 	assert.equal(getRepoAgentTrustDecision(agents, ["repo"], false).requiresApproval, false);
 	assert.equal(getRepoAgentTrustDecision(agents, ["global"], true).requiresApproval, false);
+	assert.equal(getRepoAgentTrustDecision(agents, ["bundled"], true).requiresApproval, false);
 });
 
 test("formats repo-agent trust diagnostics with realpaths and mutation warnings", () => {

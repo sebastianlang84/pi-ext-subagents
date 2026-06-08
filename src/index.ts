@@ -102,9 +102,11 @@ const RuntimeControls = {
 };
 
 const AgentName = Type.String();
+const TaskTitle = Type.Optional(Type.String());
 
 const TaskItem = Type.Object({
 	agent: AgentName,
+	title: TaskTitle,
 	task: Type.String(),
 	cwd: Type.Optional(Type.String()),
 	...RuntimeControls,
@@ -112,18 +114,17 @@ const TaskItem = Type.Object({
 
 const ChainItem = Type.Object({
 	agent: AgentName,
-	task: Type.String({ description: "Prior output: {previous}." }),
+	title: TaskTitle,
+	task: Type.String({ description: "Use {previous} for prior output." }),
 	cwd: Type.Optional(Type.String()),
 	...RuntimeControls,
 });
 
-const AgentScopeSchema = StringEnum(["global", "repo", "both"] as const, {
-	description: "Agent source: global, repo, or both.",
-	default: "global",
-});
+const AgentScopeSchema = Type.String();
 
 const SubagentParams = Type.Object({
 	agent: Type.Optional(AgentName),
+	title: TaskTitle,
 	task: Type.Optional(Type.String()),
 	tasks: Type.Optional(Type.Array(TaskItem)),
 	chain: Type.Optional(Type.Array(ChainItem)),
@@ -148,34 +149,40 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 		description: "Run isolated Pi subagents.",
 		promptSnippet: "Run subagents.",
 		promptGuidelines: [
-			"Probe scope/risk first; delegate only needed non-tiny agents; parallel=independent; chain=handoffs; main owns judgment.",
-			"Use configured agent names, not generic general; examples: scout/reviewer/worker/verifier/planner/dispatcher.",
+			"Use subagent for non-tiny scoped work; single=one, parallel=independent, chain=handoff; main decides.",
+			"Roles: scout context; worker edits; verifier commands; reviewer reviews; planner risky sequence; advisor design.",
 		],
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			return executeSubagentRequest(params, ctx, { signal, onUpdate, deps });
 		},
-		renderCall(args, theme, _context) {
+		renderCall(args, theme, context) {
 			const scope = normalizeAgentScope(args.agentScope) ?? "global";
+			const { expanded } = context;
+			const summarizeTask = (task: string, title?: string) => {
+				if (expanded) return task;
+				const text = title?.trim() || task.split("\n")[0].trim();
+				return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+			};
 			if (args.chain && args.chain.length > 0) {
 				let text =
 					theme.fg("toolTitle", theme.bold("subagent ")) +
 					theme.fg("accent", `chain (${args.chain.length} steps)`) +
 					theme.fg("muted", ` [${scope}]`);
-				for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
+				const visibleSteps = expanded ? args.chain.length : Math.min(args.chain.length, 3);
+				for (let i = 0; i < visibleSteps; i++) {
 					const step = args.chain[i];
 					// Clean up {previous} placeholder for display
 					const cleanTask = step.task.replace(/\{previous\}/g, "").trim();
-					const preview = cleanTask.length > 40 ? `${cleanTask.slice(0, 40)}...` : cleanTask;
 					text +=
 						"\n  " +
 						theme.fg("muted", `${i + 1}.`) +
 						" " +
 						theme.fg("accent", step.agent) +
-						theme.fg("dim", ` ${preview}`);
+						theme.fg("dim", ` ${summarizeTask(cleanTask, step.title)}`);
 				}
-				if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `... +${args.chain.length - 3} more`)}`;
+				if (!expanded && args.chain.length > 3) text += `\n  ${theme.fg("muted", `... +${args.chain.length - 3} more`)}`;
 				return new Text(text, 0, 0);
 			}
 			if (args.tasks && args.tasks.length > 0) {
@@ -183,15 +190,15 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 					theme.fg("toolTitle", theme.bold("subagent ")) +
 					theme.fg("accent", `parallel (${args.tasks.length} tasks)`) +
 					theme.fg("muted", ` [${scope}]`);
-				for (const t of args.tasks.slice(0, 3)) {
-					const preview = t.task.length > 40 ? `${t.task.slice(0, 40)}...` : t.task;
-					text += `\n  ${theme.fg("accent", t.agent)}${theme.fg("dim", ` ${preview}`)}`;
+				const visibleTasks = expanded ? args.tasks : args.tasks.slice(0, 3);
+				for (const t of visibleTasks) {
+					text += `\n  ${theme.fg("accent", t.agent)}${theme.fg("dim", ` ${summarizeTask(t.task, t.title)}`)}`;
 				}
-				if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${args.tasks.length - 3} more`)}`;
+				if (!expanded && args.tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${args.tasks.length - 3} more`)}`;
 				return new Text(text, 0, 0);
 			}
 			const agentName = args.agent || "...";
-			const preview = args.task ? (args.task.length > 60 ? `${args.task.slice(0, 60)}...` : args.task) : "...";
+			const preview = args.task ? summarizeTask(args.task, args.title) : "...";
 			let text =
 				theme.fg("toolTitle", theme.bold("subagent ")) +
 				theme.fg("accent", agentName) +
@@ -273,8 +280,16 @@ export function createSubagentTool(deps: SubagentToolDeps = {}): SubagentToolDef
 					text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", section.heading ?? "output")} ${iconFor(section.status)}`;
 				}
 				if (section.error) text += `\n${theme.fg("error", `Error: ${section.error}`)}`;
-				if (section.items.length === 0) text += `\n${theme.fg("muted", section.status === "running" ? "(running...)" : "(no output)")}`;
-				else text += `\n${renderDisplayItems(section.items, section.skippedItems)}`;
+				if (section.finalOutputPreview) {
+					text += `\n${theme.fg("toolOutput", section.finalOutputPreview)}`;
+					if (section.hiddenToolCallCount) {
+						text += `\n${theme.fg("muted", `→ ${section.hiddenToolCallCount} tool call${section.hiddenToolCallCount === 1 ? "" : "s"} hidden`)}`;
+					}
+				} else if (section.items.length === 0) {
+					text += `\n${theme.fg("muted", section.status === "running" ? "(running...)" : "(no output)")}`;
+				} else {
+					text += `\n${renderDisplayItems(section.items, section.skippedItems)}`;
+				}
 				if (model.sections.length === 1 && section.usage) text += `\n${theme.fg("dim", section.usage)}`;
 			}
 			if (model.footer) text += `\n\n${theme.fg("dim", `Total: ${model.footer}`)}`;

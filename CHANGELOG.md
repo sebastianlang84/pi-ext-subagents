@@ -2,8 +2,16 @@
 
 ## Unreleased
 
+## 3.1.0 - 2026-06-09
+
+SemVer impact: minor.
+
+- Bundle self-contained default agents (`scout`, `worker`, `verifier`, `reviewer`, `planner`, `advisor`) so normal subagent routing no longer depends on the global `pi-subagents` skill.
+- Add optional shared global agent directories via `~/.pi/agent/extensions/subagents.json`, with path/symlink checks that prevent configured dirs from bypassing repo-agent trust.
+- Restore canonical `agentScope: "global+repo"` plus compatibility aliases `user`, `project`, and `both` while keeping repo-local confirmation fail-closed by default.
+- Improve collapsed subagent display with optional task `title`, final-output previews, table summaries, and hidden tool-call counts.
 - Move scope/risk probing into the compact subagent tool guidance so fresh installs need less external `AGENTS.md` delegation policy.
-- Trim prompt-facing subagent role examples to configured roles, replacing disabled `oracle` with active `verifier` and `dispatcher` examples.
+- Trim prompt-facing subagent role examples to configured roles, replacing disabled `oracle`/`dispatcher` mentions with bundled `verifier` and `advisor` roles.
 
 ## 3.0.0 - 2026-05-27
 

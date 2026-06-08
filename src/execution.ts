@@ -39,7 +39,7 @@ export interface SubagentExecutionDeps {
 export interface SubagentExecutionContext {
 	cwd: string;
 	hasUI: boolean;
-	ui: {
+	ui?: {
 		confirm(title: string, message: string): Promise<boolean>;
 	};
 }
@@ -166,7 +166,7 @@ export async function executeSubagentPlan(
 ): Promise<AgentToolResult<SubagentDetails>> {
 	const discoverAgentsImpl = options.deps?.discoverAgents ?? defaultDiscoverAgents;
 	const runSingleAgentImpl = options.deps?.runSingleAgent ?? defaultRunSingleAgent;
-	const confirmRepoAgents = options.deps?.confirmRepoAgents ?? ctx.ui.confirm.bind(ctx.ui);
+	const confirmRepoAgents = options.deps?.confirmRepoAgents ?? (ctx.hasUI && ctx.ui?.confirm ? ctx.ui.confirm.bind(ctx.ui) : async () => false);
 	const { signal, onUpdate } = options;
 
 	const planAgentScope = normalizeAgentScope(plan.agentScope) ?? "global";

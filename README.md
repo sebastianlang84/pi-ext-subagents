@@ -23,7 +23,17 @@ After installation, restart Pi or run `/reload`; the `subagent` tool should be a
 
 ## Agent files
 
-Global agents live in `~/.pi/agent/agents/*.md`. Repo-local agents live in `.pi/agents/*.md` under the current repo. Agent files use frontmatter plus a system prompt body:
+The package bundles default `scout`, `worker`, `verifier`, `reviewer`, `planner`, and `advisor` agents, so normal routing works without any separate `pi-subagents` skill.
+
+Additional global agents live in `~/.pi/agent/agents/*.md`. Optional shared global directories can be listed in `~/.pi/agent/extensions/subagents.json`:
+
+```json
+{ "agentDirs": ["~/team-agents", "/work/shared-agents"] }
+```
+
+Configured dirs are treated as global/user-controlled sources only; relative paths and dirs inside the current repo are rejected so they cannot bypass repo-agent trust.
+
+Repo-local agents live in `.pi/agents/*.md` under the current repo. Agent files use frontmatter plus a system prompt body:
 
 ```markdown
 ---
@@ -36,7 +46,7 @@ model: openai-codex/gpt-5.5
 You are a focused read-only reviewer...
 ```
 
-`tools` must be a comma-separated string. Repo-local agents override same-named global agents only when `agentScope` is `both`.
+`tools` must be a comma-separated string. Discovery precedence for `agentScope: "global"` is configured global dirs → `~/.pi/agent/agents` → bundled agents. Repo-local agents override same-named global/bundled agents only when `agentScope` is `"global+repo"` or compatibility alias `"both"`.
 
 ## Usage
 
@@ -78,6 +88,7 @@ Each single task, parallel task, or chain step can opt into output controls. The
 ```json
 {
   "agent": "reviewer",
+  "title": "brief diff review",
   "task": "Review the diff briefly.",
   "maxOutputChars": 2000,
   "outputMode": "summary",
@@ -86,6 +97,7 @@ Each single task, parallel task, or chain step can opt into output controls. The
 ```
 
 - Subagent timeouts are app-owned, not caller-controlled: LLMs do not have reliable wall-clock intuition, so every child run uses the extension's deterministic 10-minute deadline. The `subagent` tool does not expose `timeoutMs`, so agents cannot choose brittle short deadlines such as 60 seconds.
+- `title` is an optional short collapsed-view label for a single task, parallel task, or chain step.
 - `maxOutputChars` bounds returned tool-result text for that step.
 - `outputMode: "summary"` returns a status/preview; `"full"` returns the step output subject to any cap. Parallel mode remains summarized by default unless a task asks for `"full"`.
 - `maxCalls` is top-level only; it rejects a request whose single, `tasks[]`, or `chain[]` mode would exceed the call budget.
@@ -119,9 +131,9 @@ Prefer absolute `cwd` values. The extension validates that `cwd` is a non-empty 
 
 ## Workflow guidance
 
-The tool injects compact prompt guidance to probe scope/risk first, delegate only needed non-tiny agents, use parallel mode for independent lanes, use chain mode for dependent handoffs, and keep final judgment with the main agent.
+The tool injects compact prompt guidance for skill-free operation: use subagents only for non-tiny scoped work, choose single/parallel/chain deliberately, and keep final judgment with the main agent.
 
-Use configured agent names rather than generic placeholders such as `general`. Example roles, when available, include `scout`, `reviewer`, `worker`, `verifier`, `planner`, and `dispatcher`.
+Use configured agent names rather than generic placeholders such as `general`. Bundled roles are `scout` for context, `worker` for bounded edits, `verifier` for listed commands, `reviewer` for review, `planner` for risky sequencing, and `advisor` for design trade-offs.
 
 Keep delegated prompts explicit: goal, scope, constraints, allowed paths/tools, stop conditions, and desired output shape.
 
@@ -129,13 +141,18 @@ Keep delegated prompts explicit: goal, scope, constraints, allowed paths/tools, 
 
 Use these as prompt patterns; the `subagent` tool does not enforce roles or sequencing beyond the requested single, parallel, or chain mode. For the open fanout-then-reduce research plan, see `docs/plans/fanout-reduce.md`.
 
-### Scout → worker → reviewer
+### Scout → worker → verifier → reviewer
 
 Use this for non-trivial implementation work where a separate read-only pass can shrink the context before changes:
 
-1. Ask a `scout` agent to inspect the relevant files and return a compact brief with constraints, risks, and suggested edit points.
+1. Ask a `scout` agent to inspect the relevant files and return a compact brief with constraints, risks, suggested edit points, allowed files, and verification commands.
 2. Apply the change in the main agent or delegate a bounded `worker` task with explicit allowed files and stop conditions.
-3. Ask a `reviewer` agent to check the original request against the diff, verification output, and remaining risks.
+3. Ask a `verifier` agent to run only the listed verification commands.
+4. Ask a `reviewer` agent to check the original request against the diff, Review Packet, Verification Report, and remaining risks.
+
+### Scout → advisor
+
+Use `advisor` for pre-diff design/API/architecture trade-offs. If the question needs unfamiliar code context, run `scout` first and hand the compact brief to `advisor`. Use `reviewer` instead for finished diffs or deliverable correctness.
 
 ### Parallel review lanes
 
@@ -167,11 +184,11 @@ Use chain mode when each step depends on the previous step's compressed output. 
 
 ### Repo-agent trust guidance
 
-Prefer the default `agentScope: "global"` for untrusted repositories. Use `agentScope: "repo"` or `"both"` only when you trust the repo-controlled `.pi/agents` prompts; interactive runs show confirmation details before executing repo-local agents.
+Prefer the default `agentScope: "global"` for untrusted repositories. Use `agentScope: "repo"` or `"global+repo"` only when you trust the repo-controlled `.pi/agents` prompts; interactive runs show confirmation details before executing repo-local agents. Compatibility aliases are accepted: `user` → `global`, `project` → `repo`, `both` → `global+repo`.
 
 ## Troubleshooting
 
-- **Unknown agents:** use a configured agent name, not a generic placeholder such as `general`; verify the agent file exists in `~/.pi/agent/agents/*.md` for global scope or `.pi/agents/*.md` for repo scope, and that the requested `agentScope` includes that source.
+- **Unknown agents:** use a configured agent name, not a generic placeholder such as `general`; verify the agent file exists in configured global dirs, `~/.pi/agent/agents/*.md`, bundled `agents/*.md`, or `.pi/agents/*.md` for repo scope, and that the requested `agentScope` includes that source.
 - **Invalid frontmatter:** ensure each agent file has `name` and `description` frontmatter. `tools` must be a comma-separated string, not a YAML list.
 - **Repo agents fail in JSON/headless mode:** repo-local agents fail closed unless `confirmRepoAgents: false` is explicitly set for a trusted repository.
 - **JSON-mode diagnostics:** malformed subagent JSON stdout events are skipped and recorded in the result diagnostics so later valid events can still complete.
@@ -194,8 +211,10 @@ Use repo-local agents only for trusted repositories:
 or combine both sources:
 
 ```json
-{ "agentScope": "both" }
+{ "agentScope": "global+repo" }
 ```
+
+Compatibility aliases are accepted for older calls: `user`, `project`, and `both`.
 
 Repo-local agents are repo-controlled prompts. When a requested agent resolves to `.pi/agents`, the tool asks for confirmation before execution and shows the agent model, tools, file path/realpath, plus warnings for mutation-capable tools such as `bash`, `write`, and `edit`. In headless/JSON/print modes, it fails closed with the same diagnostics unless you explicitly set:
 

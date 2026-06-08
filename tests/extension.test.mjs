@@ -149,25 +149,26 @@ test("extension loads and registers only the subagent tool", () => {
 	}
 });
 
-test("package manifest pi.extensions points to the source entrypoint", () => {
+test("package manifest points to the source entrypoint and includes bundled agents", () => {
 	const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
 	assert.deepEqual(packageJson.pi?.extensions, ["./src/index.ts"]);
 	assert.equal(fs.existsSync(path.join(process.cwd(), "src", "index.ts")), true);
+	assert.ok(packageJson.files.includes("agents"));
+	for (const role of ["scout", "worker", "verifier", "reviewer", "planner", "advisor"]) {
+		assert.equal(fs.existsSync(path.join(process.cwd(), "agents", `${role}.md`)), true);
+	}
 });
 
-test("tool prompt guidance discourages invented generic agents", () => {
+test("tool prompt guidance is skill-free and names bundled roles", () => {
 	const tool = registerExtension();
 	const guidance = tool.promptGuidelines.join("\n");
-	assert.match(guidance, /Probe scope\/risk first/);
-	assert.match(guidance, /delegate only needed non-tiny agents/);
-	assert.match(guidance, /main owns judgment/);
-	assert.match(guidance, /Use configured agent names/);
-	assert.match(guidance, /not generic general/);
-	assert.match(guidance, /examples/);
-	for (const role of ["scout", "reviewer", "worker", "verifier", "planner", "dispatcher"]) {
+	assert.match(guidance, /non-tiny scoped work/);
+	assert.match(guidance, /main decides/);
+	assert.match(guidance, /Roles:/);
+	for (const role of ["scout", "reviewer", "worker", "verifier", "planner", "advisor"]) {
 		assert.match(guidance, new RegExp(role));
 	}
-	assert.doesNotMatch(guidance, /oracle/);
+	assert.doesNotMatch(guidance, /oracle|dispatcher/);
 });
 
 test("execute reports normalized invalid-mode errors", async () => {
@@ -472,6 +473,20 @@ test("repo-agent discovery uses context cwd, not the requested execution cwd", a
 	assert.match(result.content[0].text, /Unknown agent: "run-agent"/);
 	assert.match(result.content[0].text, /Available agents: ctx-agent \(repo\)/);
 	assert.equal(result.details.repoAgentsDir, path.join(project, ".pi", "agents"));
+});
+
+test("repo-local agents fail closed in headless mode even without ui object", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-ext-headless-no-ui-"));
+	const project = path.join(root, "repo");
+	process.env.PI_CODING_AGENT_DIR = path.join(root, "home");
+	writeRepoAgent(project, "danger", "tools: read, bash");
+	const tool = registerExtension();
+
+	const result = await tool.execute("id", { agent: "danger", task: "run", agentScope: "repo" }, undefined, undefined, { cwd: project, hasUI: false });
+
+	assert.equal(result.isError, true);
+	assert.match(result.content[0].text, /require interactive confirmation/);
+	assert.equal(result.details.results.length, 0);
 });
 
 test("repo-local agents fail closed in headless mode by default", async () => {

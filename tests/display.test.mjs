@@ -3,7 +3,7 @@ import test from "node:test";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url);
-const { buildResultDisplayModel, stringifyResultDisplayModel } = await jiti.import("../src/display.ts");
+const { buildResultDisplayModel, normalizeCollapsedFinalOutput, stringifyResultDisplayModel, truncateCollapsedFinalOutput } = await jiti.import("../src/display.ts");
 
 function result(agent, text, exitCode = 0, agentSource = "global") {
 	return {
@@ -38,6 +38,8 @@ test("builds a collapsed single-result display model", () => {
 		"success reviewer",
 		"tool:read",
 		"Looks good",
+		"preview: Looks good",
+		"hidden-tools: 1",
 		"usage: 1 turn ↑1.0k ↓25 $0.0100 ctx:1.0k model-a",
 	].join("\n"));
 	assert.equal(model.sections[0].presentation, "inline");
@@ -52,11 +54,18 @@ test("single-result display exposes source only when diagnostically useful", () 
 	assert.equal(repoModel.header, "reviewer (repo)");
 
 	const ambiguousModel = buildResultDisplayModel(
-		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "both", repoAgentsDir: null, results: [result("reviewer", "Looks good")] } },
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global+repo", repoAgentsDir: null, results: [result("reviewer", "Looks good")] } },
 		false,
 		10,
 	);
-	assert.equal(ambiguousModel.header, "reviewer (global via both)");
+	assert.equal(ambiguousModel.header, "reviewer (global via global+repo)");
+
+	const bundledModel = buildResultDisplayModel(
+		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global", repoAgentsDir: null, results: [result("advisor", "Looks good", 0, "bundled")] } },
+		false,
+		10,
+	);
+	assert.equal(bundledModel.header, "advisor (bundled)");
 
 	const unknownModel = buildResultDisplayModel(
 		{ content: [{ type: "text", text: "done" }], details: { mode: "single", agentScope: "global", repoAgentsDir: null, results: [result("reviewer", "Looks good", 0, "unknown")] } },
@@ -72,6 +81,14 @@ test("single-result display exposes source only when diagnostically useful", () 
 	);
 	assert.equal(errorModel.header, "reviewer");
 	assert.equal(errorModel.sections[0].error, "Failed");
+});
+
+test("normalizes collapsed final output previews", () => {
+	assert.equal(
+		normalizeCollapsedFinalOutput("## Findings\n\n| File | Issue |\n| --- | --- |\n| a.ts | one |\n| b.ts | two |\n\nDetails omitted"),
+		"Findings\nTable: 2 rows — expand to view",
+	);
+	assert.equal(truncateCollapsedFinalOutput("First sentence. Second sentence with lots of detail.", 20), "First sentence. …");
 });
 
 test("builds parallel display states for running, failed, and completed results", () => {

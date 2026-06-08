@@ -17,6 +17,8 @@ export interface ResultDisplaySection {
 	items: DisplayItem[];
 	skippedItems: number;
 	finalOutput?: string;
+	finalOutputPreview?: string;
+	hiddenToolCallCount?: number;
 	usage?: string;
 }
 
@@ -84,16 +86,43 @@ function sliceItems(items: DisplayItem[], limit?: number): { items: DisplayItem[
 	return { items: items.slice(-limit), skippedItems: items.length - limit };
 }
 
-function formatResultAgentSource(source: SingleResult["agentSource"]): "global" | "repo" | "unknown" {
+function formatResultAgentSource(source: SingleResult["agentSource"]): "global" | "bundled" | "repo" | "unknown" {
 	return source === "unknown" ? "unknown" : formatAgentSource(source);
 }
 
 function resultSourceSuffix(result: SingleResult, details: SubagentDetails, status: DisplayTone): string | undefined {
 	const source = formatResultAgentSource(result.agentSource);
 	const scope = normalizeAgentScope(details.agentScope) ?? "global";
-	if (scope === "both") return `${source} via both`;
+	if (scope === "global+repo") return `${source} via global+repo`;
 	if (source !== "global") return source;
 	return undefined;
+}
+
+export function normalizeCollapsedFinalOutput(text: string): string {
+	const lines = text.split("\n");
+	const tableRow = /^\s*\|.*\|\s*$/;
+	const tableSep = /^\s*\|[-|:\s]+\|\s*$/;
+	const tableStart = lines.findIndex((line, index) => tableRow.test(line) && index + 1 < lines.length && tableSep.test(lines[index + 1]));
+	if (tableStart === -1) return lines.map((line) => line.replace(/^#{1,6}\s+/, "")).join("\n").trim();
+	let rowCount = 0;
+	for (let i = tableStart + 2; i < lines.length; i++) {
+		if (!tableRow.test(lines[i])) break;
+		rowCount++;
+	}
+	const before = lines.slice(0, tableStart).map((line) => line.replace(/^#{1,6}\s+/, "")).filter((line) => line.trim().length > 0);
+	return [...before, `Table: ${rowCount} row${rowCount === 1 ? "" : "s"} — expand to view`].join("\n").trim();
+}
+
+export function truncateCollapsedFinalOutput(text: string, maxChars: number): string {
+	if (text.length <= maxChars) return text;
+	const slice = text.slice(0, maxChars);
+	const paragraphBreak = slice.lastIndexOf("\n\n");
+	if (paragraphBreak > maxChars * 0.4) return `${slice.slice(0, paragraphBreak).trimEnd()} …`;
+	const lineBreak = slice.lastIndexOf("\n");
+	if (lineBreak > maxChars * 0.3) return `${slice.slice(0, lineBreak).trimEnd()} …`;
+	const sentenceEnd = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf("! "), slice.lastIndexOf("? "));
+	if (sentenceEnd > maxChars * 0.3) return `${slice.slice(0, sentenceEnd + 1).trimEnd()} …`;
+	return `${slice.trimEnd()} …`;
 }
 
 function resultHeading(result: SingleResult, details: SubagentDetails, status: DisplayTone): string {
@@ -107,6 +136,8 @@ function resultSection(result: SingleResult, details: SubagentDetails, expanded:
 	const { items, skippedItems } = sliceItems(allItems, expanded ? undefined : limit);
 	const status = statusForResult(result);
 	const error = status === "error" ? getFailureDiagnostic(result) || undefined : undefined;
+	const finalOutput = getFinalOutput(result.messages).trim() || undefined;
+	const toolCallCount = allItems.filter((item) => item.type === "toolCall").length;
 	return {
 		presentation: details.mode === "single" ? "inline" : "section",
 		heading: resultHeading(result, details, status),
@@ -116,7 +147,9 @@ function resultSection(result: SingleResult, details: SubagentDetails, expanded:
 		error,
 		items,
 		skippedItems,
-		finalOutput: expanded ? getFinalOutput(result.messages).trim() || undefined : undefined,
+		finalOutput: expanded ? finalOutput : undefined,
+		finalOutputPreview: !expanded && finalOutput ? truncateCollapsedFinalOutput(normalizeCollapsedFinalOutput(finalOutput), 600) : undefined,
+		hiddenToolCallCount: !expanded && finalOutput ? toolCallCount : undefined,
 		usage: formatUsageStats(result.usage, result.model) || undefined,
 	};
 }
@@ -201,6 +234,8 @@ export function stringifyResultDisplayModel(model: ResultDisplayModel): string {
 		if (section.task) lines.push(`task: ${section.task}`);
 		if (section.skippedItems) lines.push(`... ${section.skippedItems} earlier items`);
 		for (const item of section.items) lines.push(item.type === "text" ? item.text : `tool:${item.name}`);
+		if (section.finalOutputPreview) lines.push(`preview: ${section.finalOutputPreview}`);
+		if (section.hiddenToolCallCount) lines.push(`hidden-tools: ${section.hiddenToolCallCount}`);
 		if (section.finalOutput) lines.push(`final: ${section.finalOutput}`);
 		if (section.usage) lines.push(`usage: ${section.usage}`);
 	}

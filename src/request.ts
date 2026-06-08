@@ -1,4 +1,4 @@
-import { normalizeAgentScope, type AgentScope } from "./agents.js";
+import { normalizeAgentScope, type AgentScope, type AgentScopeInput } from "./agents.js";
 
 const MAX_PARALLEL_TASKS = 8;
 
@@ -13,23 +13,26 @@ export interface RuntimeControls {
 
 export interface RequestTask extends RuntimeControls {
 	agent?: string;
+	title?: string;
 	task?: string;
 	cwd?: string;
 }
 
 export interface SubagentParams extends RuntimeControls {
 	agent?: string;
+	title?: string;
 	task?: string;
 	tasks?: RequestTask[];
 	chain?: RequestTask[];
 	maxCalls?: number;
-	agentScope?: AgentScope;
+	agentScope?: AgentScopeInput;
 	confirmRepoAgents?: boolean;
 	cwd?: string;
 }
 
 export interface ExecutionStep extends RuntimeControls {
 	agent: string;
+	title?: string;
 	task: string;
 	cwd?: string;
 	step?: number;
@@ -98,6 +101,16 @@ function validateCwd(value: unknown, label: string): string | undefined {
 	return value;
 }
 
+function validateTitle(value: unknown, label: string): string | undefined {
+	if (!fieldProvided(value)) return undefined;
+	if (!hasNonEmptyString(value)) {
+		throw new RequestValidationError(`${label} must be a non-empty string when provided.`);
+	}
+	const trimmed = value.trim();
+	if (trimmed.length > 100) throw new RequestValidationError(`${label} must be at most 100 characters when provided.`);
+	return trimmed;
+}
+
 function validateRequestDefaults(params: SubagentParams): RuntimeControls & { cwd?: string } {
 	const defaults: RuntimeControls & { cwd?: string } = { ...validateRuntimeControls(params, "defaults") };
 	const cwd = validateCwd(params.cwd, "defaults.cwd");
@@ -118,7 +131,8 @@ function validateTaskItem(item: RequestTask, label: string): ExecutionStep {
 	if (!hasNonEmptyString(item.agent)) throw new RequestValidationError(`${label}.agent must be a non-empty string.`);
 	if (!hasNonEmptyString(item.task)) throw new RequestValidationError(`${label}.task must be a non-empty string.`);
 	const cwd = validateCwd(item.cwd, `${label}.cwd`);
-	return { agent: item.agent, task: item.task, cwd, ...validateRuntimeControls(item, label) };
+	const title = validateTitle(item.title, `${label}.title`);
+	return { agent: item.agent, ...(title !== undefined ? { title } : {}), task: item.task, cwd, ...validateRuntimeControls(item, label) };
 }
 
 export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan {
@@ -135,7 +149,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 	const confirmRepoAgents = params.confirmRepoAgents ?? true;
 
 	if (!agentScope) {
-		throw new RequestValidationError('agentScope must be one of "global", "repo", or "both".');
+		throw new RequestValidationError('agentScope must be one of "global", "repo", or "global+repo" (aliases: "user", "project", "both").');
 	}
 
 	if (hasSingleFields) {
@@ -144,7 +158,7 @@ export function normalizeSubagentRequest(params: SubagentParams): ExecutionPlan 
 			mode: "single",
 			agentScope,
 			confirmRepoAgents,
-			steps: [validateTaskItem({ agent: params.agent, task: params.task, cwd: params.cwd, maxOutputChars: params.maxOutputChars, outputMode: params.outputMode }, "single")],
+			steps: [validateTaskItem({ agent: params.agent, title: params.title, task: params.task, cwd: params.cwd, maxOutputChars: params.maxOutputChars, outputMode: params.outputMode }, "single")],
 		};
 	}
 
